@@ -12,8 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        # os: [ubuntu-20.04, macos-13, windows-2019]
-        os: [ubuntu-20.04, windows-2019]
+        os: [ubuntu-20.04, macos-13, windows-2019]
         build_type: [Release]
 
     steps:
@@ -55,8 +54,8 @@ jobs:
 
     - name: Test on Linux and macOS
       if: runner.os != 'Windows'
-      run: ./build/bin/pathfinder
+      run: ./build/pathfinder/bin/pathfinder
 
     - name: Test on Windows
       if: runner.os == 'Windows'
-      run: .\build\bin\Release\pathfinder.exe
+      run: .\build\pathfinder\bin\Release\pathfinder.exe
