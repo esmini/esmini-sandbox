@@ -16,6 +16,13 @@ jobs:
         build_type: [Release]
 
     steps:
+    - if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update -q
+        && sudo apt-get install -q -y gcc-7 g++-7
+        && sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 200
+        && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 200
+
     - uses: actions/checkout@v4
 
     - name: Configure CMake on Windows
@@ -26,7 +33,7 @@ jobs:
         cmd /c rmdir /s /q build
         mkdir build
         cmake -B build -G "Visual Studio 17 2022" -T v142 -A x64
-        
+
     - name: Build
       if: runner.os == 'Windows'
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
