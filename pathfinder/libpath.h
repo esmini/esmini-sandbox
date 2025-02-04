@@ -15,6 +15,6 @@
 #endif
 
 // Function to get the library's disk path
-extern "C" LIBPATH_API const char* getLibraryPath();
+extern "C" LIBPATH_API std::string getLibraryPath();
 
 #endif // LIBPATH_H

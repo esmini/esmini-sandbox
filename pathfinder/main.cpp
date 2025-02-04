@@ -25,20 +25,28 @@ int main()
         }
         std::cout << "Application path: " << std::string(buffer) << std::endl;
 
-        HMODULE const Dll = LoadLibraryExW(L"libpath.dll", nullptr, 0);
+#if 0
+        // Load the DLL dynamically, then try find its location afterwards
+        HMODULE Dll = LoadLibraryExW(L"../../lib/Debug/libpath.dll", nullptr, 0);
+        if (!Dll)
+        {
+            Dll = LoadLibraryExW(L"../../lib/Release/libpath.dll", nullptr, 0);
+        }
         if (!Dll)
         {
             std::cerr << "Failed to load DLL from: libpath.dll" << std::endl;
             return 1;
         }
-
+        // now, find the location in retrospect
         using PathType = char const* (__cdecl*) ();
 
         PathType const path = reinterpret_cast<PathType> (GetProcAddress(Dll, "getLibraryPath"));
-        if( !path)
+#endif
+        const auto path = getLibraryPath();
+        if( path.empty())
             std::cout << "unable to find the path func" << std::endl;
         else
-            std::cout << "Library path: " << std::string(path()) << std::endl;
+            std::cout << "Library path str: " << path << std::endl;
 #elif defined(__linux__)
         ssize_t length = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
         if (length == -1)

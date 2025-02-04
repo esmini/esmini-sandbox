@@ -12,8 +12,9 @@
 #endif
 
 #include <stdexcept>
+#include <iostream>
 
-extern "C" const char * getLibraryPath()
+extern "C" std::string getLibraryPath()
 {
 #if defined(_WIN32)
     char path[MAX_PATH];
@@ -30,8 +31,9 @@ extern "C" const char * getLibraryPath()
     {
         throw std::runtime_error("Failed to get library path.");
     }
-
-    return path;
+	std::cout << "lib path from within the lib: " << path << std::endl;
+	std::string strPath(path);
+    return strPath;
 
 #else
 
