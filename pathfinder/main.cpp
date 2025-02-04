@@ -42,11 +42,11 @@ int main()
 
         PathType const path = reinterpret_cast<PathType> (GetProcAddress(Dll, "getLibraryPath"));
 #endif
-        const char* path = getLibraryPath();
-        if( !path)
+        const auto path = getLibraryPath();
+        if( path.empty())
             std::cout << "unable to find the path func" << std::endl;
         else
-            std::cout << "Library path: " << std::string(path) << std::endl;
+            std::cout << "Library path str: " << path << std::endl;
 #elif defined(__linux__)
         ssize_t length = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
         if (length == -1)
