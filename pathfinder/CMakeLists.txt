@@ -3,6 +3,7 @@ set(TARGET pathfinder)
 # Create the shared library in a folder separate from the executable
 add_library(libpath SHARED libpath.cpp)
 set_target_properties(libpath PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
+set_target_properties(libpath PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 
 # Create the executable
 add_executable(${TARGET} main.cpp)
@@ -14,7 +15,9 @@ target_compile_definitions(${TARGET} PRIVATE BUILDING_LIBPATH)
 # Specify include directories
 target_include_directories(${TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(libpath PRIVATE dl)
+if(NOT MSVC)
+    target_link_libraries(libpath PRIVATE dl)
+endif(MSVC)
 
 # Link the shared library
 target_link_libraries(${TARGET} PRIVATE libpath)
