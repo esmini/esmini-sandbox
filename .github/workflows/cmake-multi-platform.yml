@@ -58,4 +58,6 @@ jobs:
 
     - name: Test on Windows
       if: runner.os == 'Windows'
-      run: .\build\pathfinder\bin\Release\pathfinder.exe
+      run: |
+         $Env:path += ";./build/pathfinder/lib/${{ matrix.build_type }}"
+        .\build\pathfinder\bin\${{ matrix.build_type }}\pathfinder.exe
