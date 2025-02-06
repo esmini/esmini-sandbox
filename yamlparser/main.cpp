@@ -35,9 +35,6 @@ void ParseYamlFile(const std::string& filename)
     }
 }
 
-
-
-
 void CreateConfigFile(const std::string& filename)
 {
 	std::ofstream file(filename);
