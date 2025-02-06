@@ -35,6 +35,9 @@ void ParseYamlFile(const std::string& filename)
     }
 }
 
+
+
+
 void CreateConfigFile(const std::string& filename)
 {
 	std::ofstream file(filename);
@@ -44,13 +47,11 @@ void CreateConfigFile(const std::string& filename)
 	  return;
 	}
 	
-	file << "esmini:\n";
-	file << "  window: 60 60 800 400\n";
-	file << "  log_filepath: c:/tmp/kalle.txt\n";
-
-	//file << "\n";
-	file << "replayer:\n";
-	file << "  tesselation_factor: 1.1";
+	file << "name: Mike Ross \n";
+	file << "age: 25\n";
+	file << "skills:\n";
+	file << " - drama\n";
+	file << " - writing";
 
 	file.close();
 	std::cout << "config file created." << std::endl;
@@ -59,6 +60,6 @@ void CreateConfigFile(const std::string& filename)
 int main()
 {
 	std::cout << "yaml parser 0.1" << std::endl;
-	//CreateConfigFile("config.yml");
+	CreateConfigFile("config.yml");
 	ParseYamlFile("config.yml");	
 }
