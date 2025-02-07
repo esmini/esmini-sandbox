@@ -47,6 +47,7 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         ./build/pathfinder/bin/pathfinder
+        ./build/yamlparser/yamlparser
         ./build/rounding/rounding
 
     - name: Test on Windows
@@ -54,4 +55,5 @@ jobs:
       run: |
          $Env:path += ";./build/pathfinder/lib/${{ matrix.build_type }}"
          .\build\pathfinder\bin\${{ matrix.build_type }}\pathfinder.exe
+         .\build\yamlparser\${{ matrix.build_type }}\yamlparser.exe
          .\build\rounding\${{ matrix.build_type }}\rounding.exe
