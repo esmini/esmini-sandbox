@@ -17,7 +17,7 @@ target_include_directories(${TARGET} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(NOT MSVC)
     target_link_libraries(libpath PRIVATE dl)
-endif(MSVC)
+endif()
 
 # Link the shared library
 target_link_libraries(${TARGET} PRIVATE libpath)

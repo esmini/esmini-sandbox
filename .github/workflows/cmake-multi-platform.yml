@@ -12,18 +12,10 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-13, windows-2019]
+        os: [ubuntu-22.04, macos-13, windows-2022]
         build_type: [Release]
 
     steps:
-    - if: runner.os == 'Linux'
-      shell: bash
-      run: sudo apt-get update -q
-        && sudo apt-get install -q -y gcc-7 g++-7
-        && sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 200
-        && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-7 200
-        && sudo g++ --version
-
     - uses: actions/checkout@v4
 
     - name: Configure CMake on Windows
@@ -32,8 +24,7 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         cmd /c rmdir /s /q build
-        mkdir build
-        cmake -B build
+        cmake -B build -G "Visual Studio 17 2022" -T v142 -A x64
 
     - name: Build
       if: runner.os == 'Windows'
@@ -54,10 +45,13 @@ jobs:
 
     - name: Test on Linux and macOS
       if: runner.os != 'Windows'
-      run: ./build/pathfinder/bin/pathfinder
+      run: |
+        ./build/pathfinder/bin/pathfinder
+        ./build/rounding/rounding
 
     - name: Test on Windows
       if: runner.os == 'Windows'
       run: |
          $Env:path += ";./build/pathfinder/lib/${{ matrix.build_type }}"
          .\build\pathfinder\bin\${{ matrix.build_type }}\pathfinder.exe
+         .\build\rounding\${{ matrix.build_type }}\rounding.exe
