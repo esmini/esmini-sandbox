@@ -37,4 +37,4 @@
 // Function to get the library's disk path
 extern "C" LIBPATH_API std::string GetLibraryPath();
 
-extern "C" std::string GetDefaultPath();
+extern "C" LIBPATH_API std::string GetDefaultPath();
