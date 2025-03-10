@@ -37,16 +37,4 @@
 // Function to get the library's disk path
 extern "C" LIBPATH_API std::string GetLibraryPath();
 
-namespace esmini
-{
-namespace common
-{
-    class DefaultPathFinder
-    {
-    public:
-        std::string GetDefaultPath();
-
-    private:
-    };
-}  // namespace common
-}  // namespace esmini
+extern "C" std::string GetDefaultPath();

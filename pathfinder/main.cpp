@@ -121,8 +121,7 @@ int main()
     std::string path = GetDefaultPathMain();
     std::cout << "Default path from executable: " << path << std::endl;
     std::cout << "-------------code is written in lib------------------" << std::endl;
-    esmini::common::DefaultPathFinder pathFinder;
-    path = pathFinder.GetDefaultPath();
+    path = GetDefaultPath();
     std::cout << "Default path from lib: " << path << std::endl;
     return 0;
 }
