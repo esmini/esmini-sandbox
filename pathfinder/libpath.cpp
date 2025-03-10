@@ -150,7 +150,7 @@ namespace esmini::common
             {
                 throw std::runtime_error("Buffer size too small for executable path on macOS");
             }
-            std::cout <<"Application path: "<< std::string(buffer)) << std::endl;
+            std::cout <<"Application path: "<< std::string(buffer) << std::endl;
             std::string libraryPath = GetLibraryPath();
             std::cout <<"Library path: "<< libraryPath << std::endl;
 #else
