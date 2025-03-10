@@ -66,7 +66,7 @@ std::string GetDefaultPathMain()
         {
             throw std::runtime_error("Failed to get executable path on Windows");
         }
-        std::cout <<"Application path: "<< std::string(buffer)) << std::endl;
+        std::cout <<"Application path: "<< std::string(buffer) << std::endl;
         std::string libraryPath = GetLibraryPathMain();
         if (libraryPath.empty())
         {
@@ -96,7 +96,7 @@ std::string GetDefaultPathMain()
         {
             throw std::runtime_error("Buffer size too small for executable path on macOS");
         }
-        std::cout <<"Application path: "<< std::string(buffer)) << std::endl;
+        std::cout <<"Application path: "<< std::string(buffer) << std::endl;
         std::string libraryPath = GetLibraryPathMain();
         std::cout <<"Library path: "<< libraryPath << std::endl;
 #else

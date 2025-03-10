@@ -120,7 +120,7 @@ namespace esmini::common
             {
                 throw std::runtime_error("Failed to get executable path on Windows");
             }
-            std::cout <<"Application path: "<< std::string(buffer)) << std::endl;
+            std::cout <<"Application path: "<< std::string(buffer) << std::endl;
             std::string libraryPath = GetLibraryPath();
             if (libraryPath.empty())
             {
