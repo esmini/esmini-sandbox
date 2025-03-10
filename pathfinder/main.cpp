@@ -1,4 +1,4 @@
-#include "libpath.h"
+
 #include <iostream>
 
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -120,9 +120,6 @@ int main()
     std::cout << "-------------code is written in executable------------------" << std::endl;
     std::string path = GetLibraryPathMain();
     std::cout << "Default path from executable: " << path << std::endl;
-    std::cout << "-------------code is written in lib------------------" << std::endl;
-    path = GetLibraryPath();
-    std::cout << "Default path from lib: " << path << std::endl;
     // std::string path = GetDefaultPathMain();
     // std::cout << "Default path from executable: " << path << std::endl;
     // std::cout << "-------------code is written in lib------------------" << std::endl;

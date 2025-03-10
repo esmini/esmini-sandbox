@@ -1,4 +1,4 @@
-set(TARGET pathfinder)
+set(TARGET pathfinderwithlib)
 
 # Create the shared library in a folder separate from the executable
 add_library(libpath SHARED libpath.cpp)
@@ -6,8 +6,11 @@ set_target_properties(libpath PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
 set_target_properties(libpath PROPERTIES LIBRARY_OUTPUT_DIRECTORY lib)
 
 # Create the executable
-add_executable(${TARGET} main.cpp)
+add_executable(${TARGET} pathFinderWithLib.cpp)
 set_target_properties(${TARGET} PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+
+add_executable(pathfinder main.cpp)
+set_target_properties(pathfinder PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 
 # Define macro for DLL export on Windows
 target_compile_definitions(${TARGET} PRIVATE BUILDING_LIBPATH)
