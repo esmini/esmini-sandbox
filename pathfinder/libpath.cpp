@@ -105,9 +105,10 @@ extern "C" std::string GetLibraryPath()
 #endif
 }
 
-namespace esmini::common
+namespace esmini
 {
-
+namespace common
+{
     std::string DefaultPathFinder::GetDefaultPath()
     {
         char buffer[1024];
@@ -166,4 +167,5 @@ namespace esmini::common
         }
         return "";
     }
-}  // namespace esmini::common
+}  // namespace common
+}  // namespace esmini
