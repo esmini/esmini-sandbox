@@ -118,10 +118,15 @@ std::string GetDefaultPathMain()
 int main()
 {
     std::cout << "-------------code is written in executable------------------" << std::endl;
-    std::string path = GetDefaultPathMain();
+    std::string path = GetLibraryPathMain();
     std::cout << "Default path from executable: " << path << std::endl;
     std::cout << "-------------code is written in lib------------------" << std::endl;
-    path = GetDefaultPath();
+    path = GetLibraryPath();
     std::cout << "Default path from lib: " << path << std::endl;
+    // std::string path = GetDefaultPathMain();
+    // std::cout << "Default path from executable: " << path << std::endl;
+    // std::cout << "-------------code is written in lib------------------" << std::endl;
+    // path = GetDefaultPath();
+    // std::cout << "Default path from lib: " << path << std::endl;
     return 0;
 }
