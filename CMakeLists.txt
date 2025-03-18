@@ -4,6 +4,7 @@ project(esmini-sandbox)
 
 add_subdirectory(pathfinder)
 add_subdirectory(rounding)
+add_subdirectory(epoch)
 
 if(NOT EXISTS "externals/ryml/.git")
     execute_process(
