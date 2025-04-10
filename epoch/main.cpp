@@ -4,11 +4,20 @@
 #include <ctime>
 #include <chrono>
 
-// Portable implementation of timegm
+#ifdef _WIN32
+#include <windows.h>
+#include <timezoneapi.h>
+#endif
+
 namespace {
-    time_t portable_timegm(struct tm *tm) {
+    time_t portable_timegm(struct tm* tm) {
+#ifdef _WIN32
+        // Windows implementation using _mkgmtime
+        return _mkgmtime(tm);
+#else
+        // Unix implementation
         time_t ret;
-        char *tz;
+        char* tz;
 
         tz = getenv("TZ");
         setenv("TZ", "", 1);
@@ -20,6 +29,7 @@ namespace {
             unsetenv("TZ");
         tzset();
         return ret;
+#endif
     }
 }
 
@@ -44,12 +54,8 @@ uint64_t GetEpochTimeFromString(const std::string& datetime) {
     }
 
     // Convert to epoch time (treating tm as UTC)
-    std::time_t time;
-    #ifdef _WIN32
-        time = _mkgmtime(&tm);  // Windows-specific
-    #else
-        time = portable_timegm(&tm);  // Our portable implementation
-    #endif
+    tm.tm_isdst = -1; // Let system determine DST
+    std::time_t time = portable_timegm(&tm);
 
     // Apply the timezone offset from the string
     if (ss) {
