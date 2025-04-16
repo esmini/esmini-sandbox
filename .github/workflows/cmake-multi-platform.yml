@@ -49,11 +49,18 @@ jobs:
         ./build/pathfinder/bin/pathfinder
         ./build/yamlparser/yamlparser
         ./build/rounding/rounding
+        ./build/mcapLogger/HelloWorld
+        ./build/mcapLogger/HelloWorldWithFlatbuffers
+        ./build/mcapLogger/HelloWorldWithFlatbuffersWithSchemaEncoded
 
     - name: Test on Windows
       if: runner.os == 'Windows'
       run: |
          $Env:path += ";./build/pathfinder/lib/${{ matrix.build_type }}"
+         .\build\mcapLogger\${{ matrix.build_type }}\HelloWorld.exe
+         .\build\mcapLogger\${{ matrix.build_type }}\HelloWorldWithFlatbuffers.exe
+         .\build\mcapLogger\${{ matrix.build_type }}\HelloWorldWithFlatbuffersWithSchemaEncoded.exe
          .\build\pathfinder\bin\${{ matrix.build_type }}\pathfinder.exe
          .\build\yamlparser\${{ matrix.build_type }}\yamlparser.exe
          .\build\rounding\${{ matrix.build_type }}\rounding.exe
+

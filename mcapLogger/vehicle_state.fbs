@@ -1,0 +1,9 @@
+namespace VehicleSim;
+
+table VehicleState {
+  speed:float;
+  x:float;
+  y:float;
+}
+
+root_type VehicleState;
