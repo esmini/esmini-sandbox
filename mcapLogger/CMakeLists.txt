@@ -1,6 +1,9 @@
 set(TARGET mcapLogger)
 
-add_executable(${TARGET} main.cpp)
+add_executable(${TARGET}
+    main.cpp
+    vehicle_sim_generated.h
+)
 
 # Specify the include directories for your executable to find the header-only library
 target_include_directories(${TARGET} PRIVATE
