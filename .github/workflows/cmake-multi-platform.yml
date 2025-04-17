@@ -56,7 +56,7 @@ jobs:
       run: |
          $Env:path += ";./build/pathfinder/lib/${{ matrix.build_type }}"
          .\build\mcapLogger\${{ matrix.build_type }}\mcapLogger.exe
-        #  .\build\pathfinder\bin\${{ matrix.build_type }}\pathfinder.exe
-        #  .\build\yamlparser\${{ matrix.build_type }}\yamlparser.exe
-        #  .\build\rounding\${{ matrix.build_type }}\rounding.exe
+         .\build\pathfinder\bin\${{ matrix.build_type }}\pathfinder.exe
+         .\build\yamlparser\${{ matrix.build_type }}\yamlparser.exe
+         .\build\rounding\${{ matrix.build_type }}\rounding.exe
 
