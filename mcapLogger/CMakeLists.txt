@@ -1,25 +1,15 @@
+cmake_minimum_required(VERSION 3.10)
 set(TARGET mcapLogger)
+
+project(TARGET LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(${TARGET}
     main.cpp
     vehicle_sim_generated.h
 )
-
-# --- MSVC-Specific Fixes ---
-if(MSVC)
-  # Force C++17 through compiler flags instead of CMAKE_CXX_STANDARD
-  add_compile_options(
-    "/std:c++17"  # Explicit MSVC C++17 flag
-    "/Zc:__cplusplus"
-    "/permissive-"
-  )
-
-  add_compile_definitions(
-    _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING
-    _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
-    NOMINMAX
-  )
-endif()
 
 # Specify the include directories for your executable to find the header-only library
 target_include_directories(${TARGET} PRIVATE
