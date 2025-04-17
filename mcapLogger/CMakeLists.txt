@@ -8,6 +8,7 @@ add_executable(${TARGET}
 # Specify the include directories for your executable to find the header-only library
 target_include_directories(${TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/externals/mcap/include
+    ${CMAKE_SOURCE_DIR}/externals/flatbuffers
 )
 
 # Disable LZ4 and Zstd compression for mcapLogger

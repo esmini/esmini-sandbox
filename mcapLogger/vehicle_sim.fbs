@@ -1,0 +1,13 @@
+namespace VehicleSim;
+
+table VehicleState {
+  id: uint64;
+  timestamp: uint64;
+  x: float;
+  y: float;
+  speed: float;
+  acceleration: float;
+  vehicle_name: string;  // New string field
+}
+
+root_type VehicleState;
