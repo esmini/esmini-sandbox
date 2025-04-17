@@ -36,7 +36,7 @@ int WriteFile()
   flatbuffers::FlatBufferBuilder builder;
 
   // Vehicle 1
-  auto name1 = builder.CreateString("Tesla Model 3");
+  auto name1 = builder.CreateString("CarWhite");
   auto vehicle1 = VehicleSim::CreateVehicleState(
     builder,
     1,              // id
@@ -66,7 +66,7 @@ int WriteFile()
   }
 
   // Vehicle 2
-  auto name2 = builder.CreateString("Ford Mustang");
+  auto name2 = builder.CreateString("CarRed");
   auto vehicle2 = VehicleSim::CreateVehicleState(
     builder,
     2,              // id
