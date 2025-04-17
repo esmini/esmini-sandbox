@@ -5,18 +5,20 @@ add_executable(${TARGET}
     vehicle_sim_generated.h
 )
 
-# --- Mandatory C++17 Setup ---
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)  # Disable MSVC extensions
-
-# --- Windows-Specific Fixes ---
+# --- MSVC-Specific Fixes ---
 if(MSVC)
+  # Force C++17 through compiler flags instead of CMAKE_CXX_STANDARD
+  add_compile_options(
+    "/std:c++17"  # Explicit MSVC C++17 flag
+    "/Zc:__cplusplus"
+    "/permissive-"
+  )
+
   add_compile_definitions(
     _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING
     _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
+    NOMINMAX
   )
-  add_compile_options(/Zc:__cplusplus)  # Proper __cplusplus macro
 endif()
 
 # Specify the include directories for your executable to find the header-only library
