@@ -3,75 +3,82 @@
 #include <mcap/reader.hpp>
 #include <iostream>
 #include <chrono>
-#include "vehicle_sim_generated.h"
 
-int WriteFile(bool use_compression) {
-  // MCAP writer with configurable compression
-  mcap::McapWriterOptions options("ros2");
-  if (use_compression) {
-    options.compression = mcap::Compression::Zstd;
-    options.compressionLevel = mcap::CompressionLevel::Fast;
-  } else {
-    options.compression = mcap::Compression::None;
+mcap::Timestamp now() {
+  return mcap::Timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           std::chrono::system_clock::now().time_since_epoch())
+                           .count());
+}
+
+std::string leveltoString(mcap::CompressionLevel level) {
+  switch (level) {
+    case mcap::CompressionLevel::Fastest: return "Fastest";
+    case mcap::CompressionLevel::Fast: return "Fast";
+    case mcap::CompressionLevel::Default: return "Default";
+    case mcap::CompressionLevel::Slow: return "Slow";
+    case mcap::CompressionLevel::Slowest: return "Slowest";
+    default: return "Unknown";
   }
-  options.noChunkCRC = true;
-  options.noSummaryCRC = true;
-  options.noChunking = false;
-
-  std::string filename = use_compression ? "vehicle_compressed.mcap" : "vehicle_uncompressed.mcap";
-
-  mcap::McapWriter writer;
-  auto status = writer.open(filename, options);
-  if (!status.ok()) {
-    std::cerr << "Failed to open " << filename << ": " << status.message << "\n";
-    return 1;
-  }
-
-  // Register schema
-  mcap::Schema schema("VehicleState", "flatbuffer", "binary");
-  writer.addSchema(schema);
-  mcap::Channel channel("vehicle_updates", "flatbuffer", schema.id);
-  writer.addChannel(channel);
-
-  flatbuffers::FlatBufferBuilder builder;
-
-  // Simulate vehicle updates
-  for (int i = 0; i < 100; i++) {
-    builder.Clear();
-
-    auto name = builder.CreateString("Vehicle_" + std::to_string(i % 5));
-    auto vehicle = VehicleSim::CreateVehicleState(
-      builder,
-      i % 3,  // 3 vehicle IDs
-      std::chrono::nanoseconds(
-        std::chrono::system_clock::now().time_since_epoch()).count(),
-      10.0f + (i * 0.1f),  // Changing position
-      20.0f + (i * 0.1f),
-      5.0f + (i % 2 ? 0.1f : -0.1f),  // Oscillating speed
-      1.0f,  // Constant acceleration
-      name
-    );
-    builder.Finish(vehicle);
-
-    mcap::Message msg;
-    msg.channelId = channel.id;
-    msg.sequence = i;
-    msg.publishTime = std::chrono::nanoseconds(
-      std::chrono::system_clock::now().time_since_epoch()).count();
-    msg.data = reinterpret_cast<const std::byte*>(builder.GetBufferPointer());
-    msg.dataSize = builder.GetSize();
-
-    auto res = writer.write(msg);
-    if (!res.ok()) {
-      std::cerr << "Failed to write message: " << res.message << "\n";
-      writer.close();
+}
+int WriteFile(bool use_compression, mcap::CompressionLevel compression_level)
+  // Start the timer
+{
+    auto start = std::chrono::high_resolution_clock::now(); // Start timer
+    std::string filename = use_compression ? "vehicle_compressed.mcap" : "vehicle_uncompressed.mcap";
+    std::cout << "\n=== " << filename << " ===\n";
+    // Initialize an MCAP writer with the "ros1" profile and write the file header
+    mcap::McapWriter writer;
+    mcap::McapWriterOptions options("ros2");
+    options.compression = use_compression ? mcap::Compression::Zstd : mcap::Compression::None;
+    options.compressionLevel = compression_level;
+    std::cout << "Compression level: " << leveltoString(compression_level) << "\n";
+    options.noChunkCRC = true;
+    options.noSummaryCRC = true;
+    options.noChunking = false;
+    auto status = writer.open(filename, options);
+    if (!status.ok()) {
+      std::cerr << "Failed to open MCAP file for writing: " << status.message << "\n";
       return 1;
     }
-  }
 
-  writer.close();
-  std::cout << "Successfully wrote " << filename << " with "
-            << (use_compression ? "Zstd compression" : "no compression") << "\n";
+    // Register a Schema for double value
+    mcap::Schema stdMsgsDouble("std_msgs/Double", "ros1msg", "float64 data");
+    writer.addSchema(stdMsgsDouble);
+
+    // Register a Channel
+    mcap::Channel chatterPublisher("/chatter", "ros1", stdMsgsDouble.id);
+    writer.addChannel(chatterPublisher);
+
+    // Create a message payload. This would typically be done by your own
+    // serialization library. In this example, we manually create ROS1 binary data
+
+    for (int i = 0; i < 200; i++)
+    {
+      double speed = 50.0 + (i * 0.01); // Example speed value
+      std::array<std::byte, sizeof(double)> payload;
+      std::memcpy(payload.data(), &speed, sizeof(double));
+      // Write our message
+      mcap::Message msg;
+      msg.channelId = chatterPublisher.id;
+      msg.sequence = i + 1; // Optional, increment sequence
+      msg.logTime = now(); // Required nanosecond timestamp
+      msg.publishTime = msg.logTime; // Set to logTime if not available
+      msg.data = payload.data();
+      msg.dataSize = static_cast<uint32_t>(payload.size());
+      const auto res = writer.write(msg);
+      if (!res.ok()) {
+      std::cerr << "Failed to write message: " << res.message << "\n";
+      writer.terminate();
+      std::ignore = std::remove("output.mcap");
+      return 1;
+      }
+    }
+    auto end = std::chrono::high_resolution_clock::now();   // End timer
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    std::cout << "Wrote to " << filename << " in " << duration.count() << " ms\n";
+    // Finish writing the file
+    writer.close();
   return 0;
 }
 
@@ -101,30 +108,44 @@ void AnalyzeFile(const std::string& filename, bool expect_compression) {
   }
 
   // 4. Print accurate comparison
-  std::cout << "\n=== " << filename << " ===\n";
+
   std::cout << "File size: " << file_size << " bytes\n";
   std::cout << "Total messages: " << message_count << "\n";
   std::cout << "Sum of message sizes: " << total_message_size << " bytes\n";
 
+  // Compare compressed and uncompressed file sizes
   if (expect_compression) {
-    double ratio = (double)total_message_size / file_size;
-    std::cout << "Compression ratio: " << ratio << ":1\n";
-    std::cout << "Space savings: " << (1 - (file_size/(double)total_message_size))*100 << "%\n";
-  }
+    std::ifstream uncompressed("vehicle_uncompressed.mcap", std::ios::binary | std::ios::ate);
+    size_t uncompressed_size = uncompressed.tellg();
+    uncompressed.close();
 
+    double compression_ratio = static_cast<double>(file_size) / uncompressed_size * 100.0;
+
+    std::cout << "Uncompressed file size: " << uncompressed_size << " bytes\n";
+    std::cout << "Compression ratio: " << compression_ratio << "%\n";
+  }
   reader.close();
 }
 
 int main() {
   std::cout << "MCAP Compression Demonstration\n";
 
-  // Write and analyze compressed version
-  if (WriteFile(true) != 0) return 1;
-  AnalyzeFile("vehicle_compressed.mcap", true);
-
   // Write and analyze uncompressed version for comparison
-  if (WriteFile(false) != 0) return 1;
+  if (WriteFile(false, mcap::CompressionLevel::Default) != 0) return 1;
   AnalyzeFile("vehicle_uncompressed.mcap", false);
+  mcap::CompressionLevel levels[] = {
+      mcap::CompressionLevel::Fastest,
+      mcap::CompressionLevel::Fast,
+      mcap::CompressionLevel::Default,
+      mcap::CompressionLevel::Slow,
+      mcap::CompressionLevel::Slowest
+  };
+  for (auto level : levels)
+  {
+    // Write and analyze compressed version
+    if (WriteFile(true, level) != 0) return 1;
+    AnalyzeFile("vehicle_compressed.mcap", true);
+  }
 
   return 0;
 }
