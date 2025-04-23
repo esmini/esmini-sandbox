@@ -13,7 +13,7 @@ add_executable(${TARGET}
 # Specify the include directories for your executable to find the header-only library
 target_include_directories(${TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/externals/mcap/include
-    ${CMAKE_SOURCE_DIR}/externals/zstd/include/lib
+    ${CMAKE_SOURCE_DIR}/externals/zstd/include/
 )
 
 target_link_libraries(${TARGET} PRIVATE zstd)
