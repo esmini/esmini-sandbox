@@ -2,6 +2,7 @@
 #include <osgViewer/Viewer>
 #include <osg/Geometry>
 #include <osg/Geode>
+#include <osg/BlendFunc>
 
 USE_OSGPLUGIN(osg2)
 USE_SERIALIZER_WRAPPER_LIBRARY(osg)
@@ -21,6 +22,9 @@ int main(int argc, char** argv)
 	normals->push_back(osg::Vec3(0.0f, -1.0f, 0.0f));
 
 	osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+	colors->push_back(osg::Vec4(0.3f, 0.3f, 0.3f, 0.0f));
+	colors->push_back(osg::Vec4(0.3f, 0.3f, 0.3f, 0.0f));
+	colors->push_back(osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f));
 	colors->push_back(osg::Vec4(0.3f, 0.3f, 0.3f, 1.0f));
 
 	osg::ref_ptr<osg::Geometry> quad = new osg::Geometry;
@@ -28,8 +32,14 @@ int main(int argc, char** argv)
 	quad->setNormalArray(normals.get());
 	quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
 	quad->setColorArray(colors.get());
-	quad->setColorBinding(osg::Geometry::BIND_OVERALL);
+	quad->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 	quad->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
+
+	osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+	blendFunc->setFunction( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+	osg::StateSet* stateset = quad->getOrCreateStateSet();
+	stateset->setAttributeAndModes( blendFunc );
 
 	osg::ref_ptr<osg::Geode> root = new osg::Geode;
 	root->addDrawable(quad.get());
