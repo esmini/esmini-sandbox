@@ -21,14 +21,14 @@ USE_GRAPHICSWINDOW()
 #define WIDTH 5.5
 #define HEIGHT 2.5
 #define EXTRUSION 1.0
-#define FAN_VERT 4
+#define FAN_SURFACES 4
 
 int main(int argc, char** argv)
 {
 	const double W = WIDTH / 2.0; // Total width 5
 	const double H = HEIGHT / 2.0; // Total height 2.5
 
-	const int vert_size = 4 + 4 * 2 + 4 * (FAN_VERT + 1); // Rect + 4 extrusions + 4 fans surfaces (1 surface = 2 points)
+	const int vert_size = 4 + 4 * 2 + 4 * (FAN_SURFACES + 1); // Rect + 4 extrusions + 4 fans surfaces (1 surface = 2 points)
 	osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array(vert_size);
 
 	// Bottom (B) Top (T) Left (L) Right (R)
@@ -57,17 +57,17 @@ int main(int argc, char** argv)
 	int fans_start_idx = 12;
 	auto makeExtrusionFan = [&](double start_angle, double corner_x, double corner_y, int fan_offset)
 	{
-		for (int i = 0; i <= FAN_VERT; i++)
+		for (int i = 0; i <= FAN_SURFACES; i++)
 		{
-			double angle = start_angle + (i / static_cast<double>(FAN_VERT)) * (osg::PI / 2.0);
+			double angle = start_angle + (i / static_cast<double>(FAN_SURFACES)) * (osg::PI / 2.0);
 			(*vertices)[fans_start_idx + fan_offset + i].set(corner_x + cos(angle) * EXTRUSION, 0.0, corner_y + sin(angle) * EXTRUSION);
 		}
 	};
 
 	makeExtrusionFan(osg::PI, -W, -H, 0); // BL
-	makeExtrusionFan(3.0 * osg::PI / 2.0, W, -H, FAN_VERT + 1); // BR
-	makeExtrusionFan(0.0, W, H, 2 * (FAN_VERT + 1)); // TR
-	makeExtrusionFan(osg::PI / 2.0, -W, H, 3 * (FAN_VERT + 1)); // TL
+	makeExtrusionFan(3.0 * osg::PI / 2.0, W, -H, FAN_SURFACES + 1); // BR
+	makeExtrusionFan(0.0, W, H, 2 * (FAN_SURFACES + 1)); // TR
+	makeExtrusionFan(osg::PI / 2.0, -W, H, 3 * (FAN_SURFACES + 1)); // TL
 
 	// Normals
 	osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
@@ -131,9 +131,9 @@ int main(int argc, char** argv)
 
 	auto makeFan = [&](int base_corner_idx, int start_offset)
 	{
-		osg::ref_ptr<osg::DrawElementsUInt> fan = new osg::DrawElementsUInt(GL_TRIANGLE_FAN, FAN_VERT + 2); // anchor corner + vertices
+		osg::ref_ptr<osg::DrawElementsUInt> fan = new osg::DrawElementsUInt(GL_TRIANGLE_FAN, FAN_SURFACES + 2); // anchor corner + surfaces + 1
 		(*fan)[0] = base_corner_idx; // The anchor
-		for (int i = 0; i <= FAN_VERT; i++)
+		for (int i = 0; i <= FAN_SURFACES; i++)
 		{
 			(*fan)[i + 1] = start_offset + i;
 		}
@@ -141,9 +141,9 @@ int main(int argc, char** argv)
 	};
 
 	makeFan(0, fans_start_idx);
-	makeFan(1, fans_start_idx + FAN_VERT + 1);
-	makeFan(2, fans_start_idx + 2 * (FAN_VERT + 1));
-	makeFan(3, fans_start_idx + 3 * (FAN_VERT + 1));
+	makeFan(1, fans_start_idx + FAN_SURFACES + 1);
+	makeFan(2, fans_start_idx + 2 * (FAN_SURFACES + 1));
+	makeFan(3, fans_start_idx + 3 * (FAN_SURFACES + 1));
 
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->addDrawable(geometry.get());
