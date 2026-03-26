@@ -3,6 +3,8 @@
 #include <osg/Geometry>
 #include <osg/Geode>
 #include <osg/BlendFunc>
+#include <osgViewer/ViewerEventHandlers>
+#include <osgGA/StateSetManipulator>
 
 USE_OSGPLUGIN(osg2)
 USE_SERIALIZER_WRAPPER_LIBRARY(osg)
@@ -47,6 +49,12 @@ int main(int argc, char** argv)
 	osgViewer::Viewer viewer;
     viewer.setUpViewInWindow(100, 100, 800, 400);
 	viewer.setSceneData(root.get());
+
+	viewer.addEventHandler(new osgViewer::StatsHandler);
+
+	osg::ref_ptr<osgGA::StateSetManipulator> statesetManipulator =
+		new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet());
+	viewer.addEventHandler(statesetManipulator.get());
 
 	return viewer.run();
 }
