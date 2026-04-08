@@ -108,7 +108,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       - name: Export GitHub Actions cache environment
         if: steps.cache-osi.outputs.cache-hit != 'true'
@@ -130,6 +130,7 @@ jobs:
         if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
         run: |
+          VCPKG_BUILD_TYPE=$(echo "${{ matrix.configuration }}" | tr '[:upper:]' '[:lower:]')
           VCPKG_TC="${{ runner.temp }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           VCPKG_TC="${VCPKG_TC//\\//}"
           OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
@@ -143,6 +144,7 @@ jobs:
             -B build-osi-deps \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TC" \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            -DVCPKG_BUILD_TYPE="${VCPKG_BUILD_TYPE}" \
             $OVERLAY_ARG \
             "${OSX_ARCH_ARGS[@]}" \
             ${{ matrix.cmake-generator }} \
@@ -167,7 +169,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       - name: Write build metadata
         shell: bash
