@@ -1,0 +1,218 @@
+name: Build OSI 3.8 Dependencies
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 2
+  OSI_UTILITIES_REPOSITORY: lichtblick-suite/asam-osi-utilities
+  OSI_UTILITIES_REF: b7c8603b96ba763dfc5d1ce3ab3eead78a905aa6
+
+jobs:
+  build:
+    name: ${{ matrix.os }} ${{ matrix.configuration }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-22.04
+          - macos-14
+          - windows-2022
+        configuration:
+          - Debug
+          - Release
+        include:
+          - os: ubuntu-22.04
+            triplet: x64-linux
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-linux
+          - os: macos-14
+            triplet: universal-osx
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-macos
+          - os: windows-2022
+            triplet: x64-windows-static-md-v142
+            cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
+            artifact-name: osi-3.8-windows
+
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v6
+
+      - name: Checkout asam-osi-utilities
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.OSI_UTILITIES_REPOSITORY }}
+          ref: ${{ env.OSI_UTILITIES_REF }}
+          path: asam-osi-utilities
+          submodules: recursive
+
+      - name: Create overlay triplets
+        shell: bash
+        run: |
+          mkdir -p vcpkg-triplets
+
+          cat > vcpkg-triplets/universal-osx.cmake <<'EOF'
+          set(VCPKG_TARGET_ARCHITECTURE arm64)
+          set(VCPKG_CRT_LINKAGE dynamic)
+          set(VCPKG_LIBRARY_LINKAGE static)
+          set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+          set(VCPKG_OSX_ARCHITECTURES "arm64;x86_64")
+          EOF
+
+          cat > vcpkg-triplets/x64-windows-static-md-v142.cmake <<'EOF'
+          set(VCPKG_TARGET_ARCHITECTURE x64)
+          set(VCPKG_CRT_LINKAGE dynamic)
+          set(VCPKG_LIBRARY_LINKAGE static)
+          set(VCPKG_PLATFORM_TOOLSET v142)
+          EOF
+
+      - name: Derive source and vcpkg versions
+        id: versions
+        shell: bash
+        run: |
+          SOURCE_SHA=$(git -C asam-osi-utilities rev-parse HEAD)
+          SOURCE_VERSION=$(python3 - <<'PY'
+          import json
+          with open('asam-osi-utilities/vcpkg.json', encoding='utf-8') as handle:
+              print(json.load(handle)['version-string'])
+          PY
+          )
+          VCPKG_BASELINE=$(python3 - <<'PY'
+          import json
+          with open('asam-osi-utilities/vcpkg-configuration.json', encoding='utf-8') as handle:
+              print(json.load(handle)['default-registry']['baseline'])
+          PY
+          )
+
+          echo "source-sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "source-version=${SOURCE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "vcpkg-baseline=${VCPKG_BASELINE}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore OSI build cache
+        id: cache-osi
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ github.workspace }}/osi-deps
+            ${{ github.workspace }}/build-osi-deps/vcpkg_installed
+          key: osi-3.8-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+
+      - name: Export GitHub Actions cache environment
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env['ACTIONS_CACHE_URL'] || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN'] || '');
+            core.exportVariable('VCPKG_BINARY_SOURCES', 'clear;x-gha,readwrite');
+
+      - name: Setup vcpkg
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ runner.temp }}/vcpkg
+          vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }}
+
+      - name: Configure asam-osi-utilities
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          VCPKG_TC="${{ runner.temp }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          VCPKG_TC="${VCPKG_TC//\\//}"
+          OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
+          OSX_ARCH_ARGS=()
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            OSX_ARCH_ARGS=("-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64")
+          fi
+
+          cmake \
+            -S asam-osi-utilities \
+            -B build-osi-deps \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TC" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            $OVERLAY_ARG \
+            "${OSX_ARCH_ARGS[@]}" \
+            ${{ matrix.cmake-generator }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+            -DBUILD_TESTING=OFF \
+            -DBUILD_EXAMPLES=OFF
+
+      - name: Build asam-osi-utilities
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: cmake --build build-osi-deps --config ${{ matrix.configuration }}
+
+      - name: Install asam-osi-utilities
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
+
+      - name: Save OSI build cache
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ github.workspace }}/osi-deps
+            ${{ github.workspace }}/build-osi-deps/vcpkg_installed
+          key: osi-3.8-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+
+      - name: Write build metadata
+        shell: bash
+        run: |
+          PROTOC_EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PROTOC_EXT=".exe"
+          fi
+
+          OSI_PREFIX="${{ github.workspace }}/osi-deps"
+          CMAKE_PREFIX_PATH="${{ github.workspace }}/osi-deps;${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}"
+          PROTOC_PATH="${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}/tools/protobuf/protoc${PROTOC_EXT}"
+
+          cat > osi-build-metadata.txt <<EOF
+          asam-osi-utilities repository: ${{ env.OSI_UTILITIES_REPOSITORY }}
+          asam-osi-utilities ref: ${{ env.OSI_UTILITIES_REF }}
+          asam-osi-utilities commit: ${{ steps.versions.outputs.source-sha }}
+          asam-osi-utilities version: ${{ steps.versions.outputs.source-version }}
+          vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
+          runner: ${{ runner.os }}
+          configuration: ${{ matrix.configuration }}
+          triplet: ${{ matrix.triplet }}
+          OSI prefix: ${OSI_PREFIX}
+          CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}
+          Protobuf protoc: ${PROTOC_PATH}
+          EOF
+
+      - name: Publish job summary
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## OSI 3.8 build
+
+          - asam-osi-utilities commit: ${{ steps.versions.outputs.source-sha }}
+          - asam-osi-utilities version: ${{ steps.versions.outputs.source-version }}
+          - vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
+          - runner: ${{ runner.os }}
+          - configuration: ${{ matrix.configuration }}
+          - triplet: ${{ matrix.triplet }}
+          - cache hit: ${{ steps.cache-osi.outputs.cache-hit || 'false' }}
+          EOF
+
+      - name: Upload OSI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}
+          if-no-files-found: error
+          path: |
+            ${{ github.workspace }}/osi-deps
+            ${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}
+            ${{ github.workspace }}/osi-build-metadata.txt
