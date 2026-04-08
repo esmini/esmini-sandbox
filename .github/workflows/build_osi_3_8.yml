@@ -1,6 +1,9 @@
 name: Build OSI 3.8 Dependencies
 
 on:
+  push:
+    branches:
+      - build_osi_3_8
   pull_request:
     branches:
       - main
