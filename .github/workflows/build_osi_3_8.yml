@@ -1,4 +1,4 @@
-name: Build OSI 3.8 Dependencies
+name: Build OSI 3.8 & its dependencies
 
 on:
   push:
@@ -59,10 +59,16 @@ jobs:
           path: asam-osi-utilities
           submodules: recursive
 
+      # "triplet" is vcpkg config that tells vcpkg three things:
+      # 1. What architecture
+      # 2. What OS
+      # 3. How to link
+      # Covers all the triplet names under "include" in the strategy step
       - name: Create overlay triplets
         shell: bash
         run: |
           mkdir -p vcpkg-triplets
+          CONF=$(echo "${{ matrix.configuration }}" | tr '[:upper:]' '[:lower:]')
 
           cat > vcpkg-triplets/universal-osx.cmake <<'EOF'
           set(VCPKG_TARGET_ARCHITECTURE arm64)
@@ -70,6 +76,7 @@ jobs:
           set(VCPKG_LIBRARY_LINKAGE static)
           set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
           set(VCPKG_OSX_ARCHITECTURES "arm64;x86_64")
+          set(VCPKG_BUILD_TYPE $CONF)
           EOF
 
           cat > vcpkg-triplets/x64-windows-static-md-v142.cmake <<'EOF'
@@ -77,8 +84,19 @@ jobs:
           set(VCPKG_CRT_LINKAGE dynamic)
           set(VCPKG_LIBRARY_LINKAGE static)
           set(VCPKG_PLATFORM_TOOLSET v142)
+          set(VCPKG_BUILD_TYPE $CONF)
           EOF
 
+          cat > vcpkg-triplets/x64-linux.cmake <<EOF
+          set(VCPKG_TARGET_ARCHITECTURE x64)
+          set(VCPKG_CRT_LINKAGE dynamic)
+          set(VCPKG_LIBRARY_LINKAGE static)
+          set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+          set(VCPKG_BUILD_TYPE $CONF)
+          EOF
+
+      # Storing some meta data about the build, last steps exports data to $GITHUB_OUTPUT which can be accessed in later action
+      # Note: Using python to write to json as it is easier than doing it via bash
       - name: Derive source and vcpkg versions
         id: versions
         shell: bash
@@ -101,6 +119,8 @@ jobs:
           echo "source-version=${SOURCE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "vcpkg-baseline=${VCPKG_BASELINE}" >> "$GITHUB_OUTPUT"
 
+      # Restore the cache if new cfg made (manually updated v1->v2 etc.) or asam-osi-utilities hash changed or vcpkg baseline changed (dependencies updated)
+      # We only try to restore a cache here, not saving it (which happens later after successful build)
       - name: Restore OSI build cache
         id: cache-osi
         uses: actions/cache/restore@v4
@@ -110,6 +130,9 @@ jobs:
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
           key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
+      # vcpkg talk directly to github caching servers, using github-script to fetch paths so vcpkg can upload compiled files during cache save.
+      # Useful because if cache for one compiled package isn't found it will recompile only the one which isn't found but download the others
+      # Note: Only runs if we didn't hit the cache
       - name: Export GitHub Actions cache environment
         if: steps.cache-osi.outputs.cache-hit != 'true'
         uses: actions/github-script@v7
@@ -119,13 +142,24 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN'] || '');
             core.exportVariable('VCPKG_BINARY_SOURCES', 'clear;x-gha,readwrite');
 
+      # This action does 3 steps:
+      # 1. Bootstraps vcpkg to location and specific commit
+      # 2. Integrates the cache of $ACTION_CACHE_URL
+      # 3. Installs dependencies from vcpkg.json (from asam-osi-utils)
+      # Note: Only runs if we didn't hit the cache
       - name: Setup vcpkg
         if: steps.cache-osi.outputs.cache-hit != 'true'
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@v11 # lukka/run-vcpkg handles binary caching, env variables for cmake and error logging
         with:
-          vcpkgDirectory: ${{ runner.temp }}/vcpkg
-          vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }}
+          vcpkgDirectory: ${{ runner.temp }}/vcpkg # Create a new clean vcpkg dir
+          vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }} # Use the vcpkg baseline saved earlier (which depends asam-osi-utils commit used)
 
+      # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
+      # VCPKG_BUILD_TYPE has to be "debug" or "release" instead of "Debug" and "Release", so its converted to lower-case
+      # Then we do cmake, notes:
+      # CMAKE_TOOLCHAIN_FILE ensures we look for libraries in vcpkg folder and NOT in system
+      # VCPKG_TARGET_TRIPLET tells which OS/Architecture to use
+      # Note: Only runs if we didn't hit the cache
       - name: Configure asam-osi-utilities
         if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
@@ -152,16 +186,19 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DBUILD_EXAMPLES=OFF
 
+      # Building into binaries stored in build-osi-deps
       - name: Build asam-osi-utilities
         if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
         run: cmake --build build-osi-deps --config ${{ matrix.configuration }}
 
+      # Packing step moving necessary stuff from build_osi_deps -> osi_deps
       - name: Install asam-osi-utilities
         if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
         run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
 
+      # Saving the cache, essentially mirrors the reestore step but saves instead
       - name: Save OSI build cache
         if: steps.cache-osi.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -171,6 +208,7 @@ jobs:
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
           key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
+      # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
         shell: bash
         run: |
@@ -197,6 +235,7 @@ jobs:
           Protobuf protoc: ${PROTOC_PATH}
           EOF
 
+      # Publish summary on actions -> run
       - name: Publish job summary
         shell: bash
         run: |
