@@ -184,20 +184,6 @@ jobs:
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
           key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
-      # Make structure:
-      # osi-deps/
-      # ├── include/ (shared)
-      # ├── release/ (lib + share)
-      # └── debug/   (lib + share)
-      - name: Organize Artifact Structure
-        shell: bash
-        run: |
-          mkdir -p osi-deps/include
-          cp -r osi-deps/release/include/* osi-deps/include/
-
-          rm -rf osi-deps/release/include
-          rm -rf osi-deps/debug/include
-
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
         shell: bash
