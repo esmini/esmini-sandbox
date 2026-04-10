@@ -190,14 +190,13 @@ jobs:
       # ├── release/ (lib + share)
       # └── debug/   (lib + share)
       - name: Organize Artifact Structure
-              shell: bash
-              run: |
-                mkdir -p osi-deps/include
-                cp -r osi-deps/release/include/* osi-deps/include/
+        shell: bash
+        run: |
+          mkdir -p osi-deps/include
+          cp -r osi-deps/release/include/* osi-deps/include/
 
-                rm -rf osi-deps/release/include
-                rm -rf osi-deps/debug/include
-
+          rm -rf osi-deps/release/include
+          rm -rf osi-deps/debug/include
 
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
