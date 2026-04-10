@@ -68,7 +68,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p vcpkg-triplets
-          CONF=$(echo "${{ matrix.configuration }}" | tr '[:upper:]' '[:lower:]')
 
           cat > vcpkg-triplets/universal-osx.cmake <<'EOF'
           set(VCPKG_TARGET_ARCHITECTURE arm64)
@@ -76,7 +75,6 @@ jobs:
           set(VCPKG_LIBRARY_LINKAGE static)
           set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
           set(VCPKG_OSX_ARCHITECTURES "arm64;x86_64")
-          set(VCPKG_BUILD_TYPE $CONF)
           EOF
 
           cat > vcpkg-triplets/x64-windows-static-md-v142.cmake <<'EOF'
@@ -84,15 +82,6 @@ jobs:
           set(VCPKG_CRT_LINKAGE dynamic)
           set(VCPKG_LIBRARY_LINKAGE static)
           set(VCPKG_PLATFORM_TOOLSET v142)
-          set(VCPKG_BUILD_TYPE $CONF)
-          EOF
-
-          cat > vcpkg-triplets/x64-linux.cmake <<EOF
-          set(VCPKG_TARGET_ARCHITECTURE x64)
-          set(VCPKG_CRT_LINKAGE dynamic)
-          set(VCPKG_LIBRARY_LINKAGE static)
-          set(VCPKG_CMAKE_SYSTEM_NAME Linux)
-          set(VCPKG_BUILD_TYPE $CONF)
           EOF
 
       # Storing some meta data about the build, last steps exports data to $GITHUB_OUTPUT which can be accessed in later action
@@ -207,6 +196,15 @@ jobs:
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
           key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+
+      - name: Prune unwanted configuration
+        shell: bash
+        run: |
+          # If we are building Release, delete the debug folders
+          if [ "${{ matrix.configuration }}" = "Release" ]; then
+            rm -rf build-osi-deps/vcpkg_installed/${{ matrix.triplet }}/debug
+            rm -rf osi-deps/debug # if cmake install created one
+          fi
 
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
