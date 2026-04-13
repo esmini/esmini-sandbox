@@ -26,13 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-22.04
-          - macos-14
-          - windows-2022
-        configuration:
-          - Debug
-          - Release
+        os: [ubuntu-22.04, macos-14, windows-2022]
+        configuration: [Debug, Release]
+        linkage: [static, dynamic]
         include:
           - os: ubuntu-22.04
             triplet: x64-linux
@@ -67,22 +63,34 @@ jobs:
       - name: Create overlay triplets
         shell: bash
         run: |
+          FILENAME="${{ matrix.triplet }}-${{ matrix.linkage }}.cmake"
           mkdir -p vcpkg-triplets
+          DEST="vcpkg-triplets/$FILENAME"
 
-          cat > vcpkg-triplets/universal-osx.cmake <<'EOF'
-          set(VCPKG_TARGET_ARCHITECTURE arm64)
-          set(VCPKG_CRT_LINKAGE dynamic)
-          set(VCPKG_LIBRARY_LINKAGE static)
-          set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
-          set(VCPKG_OSX_ARCHITECTURES "arm64;x86_64")
-          EOF
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cat > "$DEST" <<EOF
+            set(VCPKG_TARGET_ARCHITECTURE arm64)
+            set(VCPKG_CRT_LINKAGE dynamic)
+            set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})
+            set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+            set(VCPKG_OSX_ARCHITECTURES "arm64;x86_64")
+            EOF
 
-          cat > vcpkg-triplets/x64-windows-static-md-v142.cmake <<'EOF'
-          set(VCPKG_TARGET_ARCHITECTURE x64)
-          set(VCPKG_CRT_LINKAGE dynamic)
-          set(VCPKG_LIBRARY_LINKAGE static)
-          set(VCPKG_PLATFORM_TOOLSET v142)
-          EOF
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            cat > "$DEST" <<EOF
+            set(VCPKG_TARGET_ARCHITECTURE x64)
+            set(VCPKG_CRT_LINKAGE dynamic)
+            set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})
+            set(VCPKG_PLATFORM_TOOLSET v142)
+            EOF
+
+          else # Linux
+            cat > "$DEST" <<EOF
+            set(VCPKG_TARGET_ARCHITECTURE x64)
+            set(VCPKG_CRT_LINKAGE dynamic)
+            set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})
+            EOF
+          fi
 
       # Storing some meta data about the build, last steps exports data to $GITHUB_OUTPUT which can be accessed in later action
       # Note: Using python to write to json as it is easier than doing it via bash
@@ -117,7 +125,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       # vcpkg talk directly to github caching servers, using github-script to fetch paths so vcpkg can upload compiled files during cache save.
       # Useful because if cache for one compiled package isn't found it will recompile only the one which isn't found but download the others
@@ -142,6 +150,11 @@ jobs:
         with:
           vcpkgDirectory: ${{ runner.temp }}/vcpkg # Create a new clean vcpkg dir
           vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }} # Use the vcpkg baseline saved earlier (which depends asam-osi-utils commit used)
+          vcpkgJsonGlob: 'asam-osi-utilities/vcpkg.json'
+          runVcpkgInstall: true
+          vcpkgArguments: >
+            --overlay-triplets=${{ github.workspace }}/vcpkg-triplets
+            --triplet=${{ matrix.triplet }}-${{ matrix.linkage }}
 
       # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
       # Then we do cmake, notes:
@@ -152,6 +165,10 @@ jobs:
         if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
         run: |
+          SHARED_FLAG="OFF"
+          if [ "${{ matrix.linkage }}" = "dynamic" ]; then
+            SHARED_FLAG="ON"
+          fi
           VCPKG_TC="${{ runner.temp }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           VCPKG_TC="${VCPKG_TC//\\//}"
           OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
@@ -164,13 +181,14 @@ jobs:
             -S asam-osi-utilities \
             -B build-osi-deps \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TC" \
-            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}-${{ matrix.linkage }} \
             $OVERLAY_ARG \
             "${OSX_ARCH_ARGS[@]}" \
             ${{ matrix.cmake-generator }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
             -DBUILD_TESTING=OFF \
-            -DBUILD_EXAMPLES=OFF
+            -DBUILD_EXAMPLES=OFF \
+            -DLINK_WITH_SHARED_OSI=$SHARED_FLAG
 
       # Building into binaries stored in build-osi-deps
       - name: Build asam-osi-utilities
@@ -192,7 +210,22 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+
+      - name: Prune Debug binaries from Release build
+        # Only run this logic if the current matrix configuration is Release
+        if: matrix.configuration == 'Release'
+        shell: bash
+        run: |
+          # Use matrix.triplet to ensure it works on Linux, Mac, and Windows paths
+          TARGET_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}/debug"
+
+          if [ -d "$TARGET_DIR" ]; then
+            rm -rf "$TARGET_DIR"
+            echo "Successfully removed $TARGET_DIR"
+          else
+            echo "Debug directory not found, skipping pruning."
+          fi
 
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
@@ -219,6 +252,7 @@ jobs:
           OSI prefix: ${OSI_PREFIX}
           CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}
           Protobuf protoc: ${PROTOC_PATH}
+          linkage: ${{ matrix.linkage }}
           EOF
 
       # Publish summary on actions -> run
