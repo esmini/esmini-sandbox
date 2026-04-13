@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.os }} ${{ matrix.configuration }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -30,6 +30,9 @@ jobs:
           - ubuntu-22.04
           - macos-14
           - windows-2022
+        configuration:
+          - Debug
+          - Release
         include:
           - os: ubuntu-22.04
             triplet: x64-linux
@@ -114,7 +117,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       # vcpkg talk directly to github caching servers, using github-script to fetch paths so vcpkg can upload compiled files during cache save.
       # Useful because if cache for one compiled package isn't found it will recompile only the one which isn't found but download the others
@@ -152,26 +155,34 @@ jobs:
           VCPKG_TC="${{ runner.temp }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           VCPKG_TC="${VCPKG_TC//\\//}"
           OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
+          OSX_ARCH_ARGS=()
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            OSX_ARCH_ARGS=("-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64")
+          fi
 
-          cmake -S asam-osi-utilities -B build-release \
+          cmake \
+            -S asam-osi-utilities \
+            -B build-osi-deps \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TC" \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
             $OVERLAY_ARG \
-            -DCMAKE_BUILD_TYPE=Release \
-            ${{ matrix.cmake-generator }} -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
+            "${OSX_ARCH_ARGS[@]}" \
+            ${{ matrix.cmake-generator }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+            -DBUILD_TESTING=OFF \
+            -DBUILD_EXAMPLES=OFF
 
-          cmake --build build-release --config Release
-          cmake --install build-release --config Release --prefix osi-deps/release
+      # Building into binaries stored in build-osi-deps
+      - name: Build asam-osi-utilities
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: cmake --build build-osi-deps --config ${{ matrix.configuration }}
 
-          cmake -S asam-osi-utilities -B build-debug \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_TC" \
-            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
-            $OVERLAY_ARG \
-            -DCMAKE_BUILD_TYPE=Debug \
-            ${{ matrix.cmake-generator }} -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-
-          cmake --build build-debug --config Debug
-          cmake --install build-debug --config Debug --prefix osi-deps/debug
+      # Packing step moving necessary stuff from build_osi_deps -> osi_deps
+      - name: Install asam-osi-utilities
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
 
       # Saving the cache, essentially mirrors the reestore step but saves instead
       - name: Save OSI build cache
@@ -181,22 +192,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
-
-      # Make structure:
-      # osi-deps/
-      # ├── include/ (shared)
-      # ├── release/ (lib + share)
-      # └── debug/   (lib + share)
-      - name: Organize Artifact Structure
-        shell: bash
-        run: |
-          mkdir -p osi-deps/include
-          cp -r osi-deps/release/include/* osi-deps/include/
-
-          rm -rf osi-deps/release/include
-          rm -rf osi-deps/debug/include
-
+          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
@@ -218,6 +214,7 @@ jobs:
           asam-osi-utilities version: ${{ steps.versions.outputs.source-version }}
           vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
           runner: ${{ runner.os }}
+          configuration: ${{ matrix.configuration }}
           triplet: ${{ matrix.triplet }}
           OSI prefix: ${OSI_PREFIX}
           CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}
@@ -235,6 +232,7 @@ jobs:
           - asam-osi-utilities version: ${{ steps.versions.outputs.source-version }}
           - vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
           - runner: ${{ runner.os }}
+          - configuration: ${{ matrix.configuration }}
           - triplet: ${{ matrix.triplet }}
           - cache hit: ${{ steps.cache-osi.outputs.cache-hit || 'false' }}
           EOF
@@ -242,7 +240,7 @@ jobs:
       - name: Upload OSI artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}
+          name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}
           if-no-files-found: error
           path: |
             ${{ github.workspace }}/osi-deps
