@@ -17,6 +17,8 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 2
   OSI_UTILITIES_REPOSITORY: lichtblick-suite/asam-osi-utilities
   OSI_UTILITIES_REF: b7c8603b96ba763dfc5d1ce3ab3eead78a905aa6
+  VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}-${{ matrix.linkage }}
+  VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/vcpkg-triplets
 
 jobs:
   build:
@@ -85,6 +87,8 @@ jobs:
             echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
             echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
             echo "set(VCPKG_CMAKE_SYSTEM_NAME Linux)" >> "$DEST"
+            echo "set(VCPKG_CXX_FLAGS \"-fPIC\")" >> "$DEST"
+            echo "set(VCPKG_C_FLAGS \"-fPIC\")" >> "$DEST"
           fi
 
       # Storing some meta data about the build, last steps exports data to $GITHUB_OUTPUT which can be accessed in later action
@@ -205,7 +209,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v2-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       - name: Prune Debug binaries from Release build
         # Only run this logic if the current matrix configuration is Release
@@ -269,9 +273,9 @@ jobs:
       - name: Upload OSI artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}
+          name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
           if-no-files-found: error
           path: |
             ${{ github.workspace }}/osi-deps
-            ${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}
+            ${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}
             ${{ github.workspace }}/osi-build-metadata.txt
