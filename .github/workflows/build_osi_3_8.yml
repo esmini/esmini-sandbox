@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.os }} ${{ matrix.configuration }}
+    name: ${{ matrix.os }} ${{ matrix.configuration }} ${{ matrix.linkage }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -68,28 +68,22 @@ jobs:
           DEST="vcpkg-triplets/$FILENAME"
 
           if [ "${{ runner.os }}" = "macOS" ]; then
-            cat > "$DEST" <<EOF
-            set(VCPKG_TARGET_ARCHITECTURE arm64)
-            set(VCPKG_CRT_LINKAGE dynamic)
-            set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})
-            set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
-            set(VCPKG_OSX_ARCHITECTURES "arm64;x86_64")
-            EOF
+            echo "set(VCPKG_TARGET_ARCHITECTURE arm64)" > "$DEST"
+            echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_CMAKE_SYSTEM_NAME Darwin)" >> "$DEST"
+            echo "set(VCPKG_OSX_ARCHITECTURES \"arm64;x86_64\")" >> "$DEST"
 
           elif [ "${{ runner.os }}" = "Windows" ]; then
-            cat > "$DEST" <<EOF
-            set(VCPKG_TARGET_ARCHITECTURE x64)
-            set(VCPKG_CRT_LINKAGE dynamic)
-            set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})
-            set(VCPKG_PLATFORM_TOOLSET v142)
-            EOF
+            echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
+            echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_PLATFORM_TOOLSET v142)" >> "$DEST"
 
           else # Linux
-            cat > "$DEST" <<EOF
-            set(VCPKG_TARGET_ARCHITECTURE x64)
-            set(VCPKG_CRT_LINKAGE dynamic)
-            set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})
-            EOF
+            echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
+            echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
           fi
 
       # Storing some meta data about the build, last steps exports data to $GITHUB_OUTPUT which can be accessed in later action
