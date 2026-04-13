@@ -17,8 +17,6 @@ env:
   CMAKE_BUILD_PARALLEL_LEVEL: 2
   OSI_UTILITIES_REPOSITORY: lichtblick-suite/asam-osi-utilities
   OSI_UTILITIES_REF: b7c8603b96ba763dfc5d1ce3ab3eead78a905aa6
-  VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}-${{ matrix.linkage }}
-  VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/vcpkg-triplets
 
 jobs:
   build:
@@ -147,6 +145,8 @@ jobs:
         if: steps.cache-osi.outputs.cache-hit != 'true'
         uses: lukka/run-vcpkg@v11 # lukka/run-vcpkg handles binary caching, env variables for cmake and error logging
         with:
+          VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}-${{ matrix.linkage }}
+          VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/vcpkg-triplets
           vcpkgDirectory: ${{ runner.temp }}/vcpkg # Create a new clean vcpkg dir
           vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }} # Use the vcpkg baseline saved earlier (which depends asam-osi-utils commit used)
           vcpkgJsonGlob: 'asam-osi-utilities/vcpkg.json'
