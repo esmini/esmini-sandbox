@@ -195,9 +195,7 @@ jobs:
         shell: bash
         run: cmake --build build-osi-deps --config ${{ matrix.configuration }}
 
-      # Packing step moving necessary stuff from build_osi_deps -> osi_deps
       - name: Install asam-osi-utilities
-        if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
         run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
 
@@ -310,3 +308,4 @@ jobs:
         with:
           name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
           path: "*.tar.gz"
+          compression-level: 0
