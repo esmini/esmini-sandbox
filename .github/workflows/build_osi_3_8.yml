@@ -292,23 +292,21 @@ jobs:
           - cache hit: ${{ steps.cache-osi.outputs.cache-hit || 'false' }}
           EOF
 
-      - name: Copy Release artifacts to esmini prefix folder structure
+      - name: Archive Artifacts
         shell: bash
-        run: >
-          mkdir osi-${{ runner.os }} &&
-          tar -c -p
-          ${{ github.workspace }}/osi-deps/
-          ${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}/
-          ${{ github.workspace }}/osi-build-metadata.txt
-          | tar -p -C osi-${{ runner.os }} -x
+        run: |
+          STAGING="osi-package"
+          mkdir -p "$STAGING/osi-deps"
+          mkdir -p "$STAGING/build-osi-deps"
 
-      - name: Archive release binaries
-        shell: bash
-        run: 7z a osi-${{ runner.os }}.zip osi-${{ runner.os }}/*
+          cp -r "${{ github.workspace }}/osi-deps/." "$STAGING/osi-deps/"
+          cp -r "${{ github.workspace }}/build-osi-deps/." "$STAGING/build-osi-deps/"
+          cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING/"
+
+          tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.gz" -C "$STAGING" .
 
       - name: Upload OSI artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          if-no-files-found: error
           name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
-          path: osi-${{ runner.os }}
+          path: "*.tar.gz"
