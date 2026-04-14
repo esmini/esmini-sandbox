@@ -201,6 +201,13 @@ jobs:
         shell: bash
         run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
 
+      - name: Verify Symlinks
+        shell: bash
+        run: |
+          echo "Checking for symlinks in the output directory..."
+          ls -l osi-deps/lib/libopen_simulation_interface.so*
+          file osi-deps/lib/libopen_simulation_interface.so
+
       # Saving the cache, essentially mirrors the reestore step but saves instead
       - name: Save OSI build cache
         if: steps.cache-osi.outputs.cache-hit != 'true'
@@ -217,7 +224,7 @@ jobs:
         shell: bash
         run: |
           # Use matrix.triplet to ensure it works on Linux, Mac, and Windows paths
-          TARGET_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}/debug"
+          TARGET_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}/debug"
 
           if [ -d "$TARGET_DIR" ]; then
             rm -rf "$TARGET_DIR"
