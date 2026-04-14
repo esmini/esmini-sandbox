@@ -122,7 +122,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v2-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v3-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       # vcpkg talk directly to github caching servers, using github-script to fetch paths so vcpkg can upload compiled files during cache save.
       # Useful because if cache for one compiled package isn't found it will recompile only the one which isn't found but download the others
@@ -209,7 +209,7 @@ jobs:
           path: |
             ${{ github.workspace }}/osi-deps
             ${{ github.workspace }}/build-osi-deps/vcpkg_installed
-          key: osi-3.8-singlecfg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+          key: osi-3.8-singlecfg-v3-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
 
       - name: Extract Protobuf Compiler Version
         id: proto-ver
@@ -304,7 +304,7 @@ jobs:
 
       - name: Archive release binaries
         shell: bash
-        run: 7z a osi-package-${{ runner.os }}.zip osi-package/*
+        run: 7z a osi-${{ runner.os }}.zip osi-${{ runner.os }}/*
 
       - name: Upload OSI artifacts
         uses: actions/upload-artifact@v7
