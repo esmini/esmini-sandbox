@@ -232,20 +232,20 @@ jobs:
           echo "protoc-version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Protoc version found: ${VERSION}"
 
-      - name: Prune Debug binaries from Release build
-        # Only run this logic if the current matrix configuration is Release
-        if: matrix.configuration == 'Release'
-        shell: bash
-        run: |
-          # Use matrix.triplet to ensure it works on Linux, Mac, and Windows paths
-          TARGET_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}/debug"
+      # - name: Prune Debug binaries from Release build
+      #   # Only run this logic if the current matrix configuration is Release
+      #   if: matrix.configuration == 'Release'
+      #   shell: bash
+      #   run: |
+      #     # Use matrix.triplet to ensure it works on Linux, Mac, and Windows paths
+      #     TARGET_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}/debug"
 
-          if [ -d "$TARGET_DIR" ]; then
-            rm -rf "$TARGET_DIR"
-            echo "Successfully removed $TARGET_DIR"
-          else
-            echo "Debug directory not found, skipping pruning."
-          fi
+      #     if [ -d "$TARGET_DIR" ]; then
+      #       rm -rf "$TARGET_DIR"
+      #       echo "Successfully removed $TARGET_DIR"
+      #     else
+      #       echo "Debug directory not found, skipping pruning."
+      #     fi
 
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
@@ -296,15 +296,51 @@ jobs:
         shell: bash
         run: |
           VCPKG_INSTALLED_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}"
-          STAGING="osi-package"
-          mkdir -p "$STAGING/osi-deps"
-          mkdir -p "$STAGING/build-osi-deps"
+          if [ "${{ matrix.configuration }} = "Release" ]; then
+            VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/lib"
+          else
+            VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/debug/lib"
+          fi
 
-          cp -r "${{ github.workspace }}/osi-deps/." "$STAGING/osi-deps/"
-          cp -r "$VCPKG_INSTALLED_DIR/." "$STAGING/build-osi-deps/"
-          cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING/"
+          STAGING_DIR="osi-package"
+          INCLUDE_DIR="$STAGING_DIR/include"
 
-          tar -cJvf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz" -C "$STAGING" .
+          mkdir -p "$INCLUDE_DIR"
+
+          if [ "${{ matrix.linkage }}" = "static" ]; then
+            LIB_DIR_NAME="lib"
+          else
+            LIB_DIR_NAME="lib-dyn"
+          fi
+
+          cp -r "${{ github.workspace }}/osi-deps/include/." "$INCLUDE_DIR"
+          cp -r "$VCPKG_INSTALLED_DIR/include/." "$INCLUDE_DIR"
+
+
+          if [ "${{ matrix.configuration }}" = "Release" ]; then
+            TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/release"
+          else
+            TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/debug"
+          fi
+          mkdir -p "$TARGET_LIB_DIR"
+
+          if [ "${{ matrix.linkage }}" = "static" ]; then
+            # Remove lite to avoid conflicts if present
+            rm -f "$VCPKG_LIB_DIR/libprotobuf-lite*"
+
+            # Copy all static libs (.a)
+            # Use find to avoid "argument list too long" or globbing errors
+            find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*.a" -exec cp {} "$TARGET_LIB_DIR/" \;
+            cp "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || true
+          else
+            # Copy all dynamic libs (.so) and their symlinks
+            find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*.so*" -exec cp -d {} "$TARGET_LIB_DIR/" \;
+            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
+          fi
+
+          cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
+
+          tar -cJvf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz" -C "$STAGING_DIR" .
 
       - name: Upload OSI artifacts
         uses: actions/upload-artifact@v4
