@@ -168,6 +168,7 @@ jobs:
           if [ "${{ matrix.linkage }}" = "dynamic" ]; then
             SHARED_FLAG="ON"
           fi
+
           VCPKG_TC="${{ runner.temp }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           VCPKG_TC="${VCPKG_TC//\\//}"
           OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
@@ -196,6 +197,7 @@ jobs:
         run: cmake --build build-osi-deps --config ${{ matrix.configuration }}
 
       - name: Install asam-osi-utilities
+        if: steps.cache-osi.outputs.cache-hit != 'true'
         shell: bash
         run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
 
