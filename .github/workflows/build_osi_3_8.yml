@@ -296,7 +296,7 @@ jobs:
         shell: bash
         run: |
           VCPKG_INSTALLED_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}"
-          if [ "${{ matrix.configuration }} = "Release" ]; then
+          if [ "${{ matrix.configuration }}" = "Release" ]; then
             VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/lib"
           else
             VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/debug/lib"
