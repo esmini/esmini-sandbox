@@ -339,11 +339,43 @@ jobs:
 
           cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
           find "$STAGING_DIR" -name "libprotobuf-lite*" -delete
-          tar -cJvf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz" -C "$STAGING_DIR" .
+          tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz" -C "$STAGING_DIR" .
 
       - name: Upload OSI artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
-          path: "*.tar.xz"
+          name: package-${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
+          path: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz
           compression-level: 0
+
+  stitch-packages:
+    needs: [build]
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-2022]
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download_artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Bundle platform package
+        shell: bash
+        run: |
+          FINAL_DIR="osi-3.8-${{ matrix.os-group}}"
+          mkdir -p "$FINAL_DIR"
+
+          for tarfile in staging/staging/package-*/*.tar.gz; do
+            tar -xvf "$tarfile" -C "$FINAL_DIR"
+          done
+          tar -cJvf "${FINAL_DIR}.tar.xz" -C "$FINAL_DIR" .
+
+      - name: Upload Final Master Package
+        uses: actions/upload-artifact@v7
+        with:
+          name: osi-3.8-${{ matrix.os-group }}-complete
+          path: "*.tar.gz"
+
