@@ -326,7 +326,6 @@ jobs:
 
           if [ "${{ matrix.linkage }}" = "static" ]; then
             # Remove lite to avoid conflicts if present
-            rm -f "$VCPKG_LIB_DIR/libprotobuf-lite*"
 
             # Copy all static libs (.a)
             # Use find to avoid "argument list too long" or globbing errors
@@ -339,7 +338,7 @@ jobs:
           fi
 
           cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
-
+          find "$STAGING_DIR" -name "libprotobuf-lite*" -delete
           tar -cJvf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz" -C "$STAGING_DIR" .
 
       - name: Upload OSI artifacts
