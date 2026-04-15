@@ -153,7 +153,7 @@ jobs:
           runVcpkgInstall: true
           vcpkgArguments: >
             --overlay-triplets=${{ github.workspace }}/vcpkg-triplets
-            --triplet=${{ matrix.triplet }}-${{ matrix.linkage }}
+            --triplet=${{ matrix.triplet }}
 
       # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
       # Then we do cmake, notes:
@@ -293,19 +293,20 @@ jobs:
       - name: Archive Artifacts
         shell: bash
         run: |
+          VCPKG_INSTALLED_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}"
           STAGING="osi-package"
           mkdir -p "$STAGING/osi-deps"
           mkdir -p "$STAGING/build-osi-deps"
 
           cp -r "${{ github.workspace }}/osi-deps/." "$STAGING/osi-deps/"
-          cp -r "${{ github.workspace }}/build-osi-deps/." "$STAGING/build-osi-deps/"
+          cp -r "$VCPKG_INSTALLED_DIR/." "$STAGING/build-osi-deps/"
           cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING/"
 
-          tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.gz" -C "$STAGING" .
+          tar -cJvf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar.xz" -C "$STAGING" .
 
       - name: Upload OSI artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
-          path: "*.tar.gz"
+          path: "*.tar.xz"
           compression-level: 0
