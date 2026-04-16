@@ -232,21 +232,6 @@ jobs:
           echo "protoc-version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Protoc version found: ${VERSION}"
 
-      # - name: Prune Debug binaries from Release build
-      #   # Only run this logic if the current matrix configuration is Release
-      #   if: matrix.configuration == 'Release'
-      #   shell: bash
-      #   run: |
-      #     # Use matrix.triplet to ensure it works on Linux, Mac, and Windows paths
-      #     TARGET_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}/debug"
-
-      #     if [ -d "$TARGET_DIR" ]; then
-      #       rm -rf "$TARGET_DIR"
-      #       echo "Successfully removed $TARGET_DIR"
-      #     else
-      #       echo "Debug directory not found, skipping pruning."
-      #     fi
-
       # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
       - name: Write build metadata
         shell: bash
@@ -325,16 +310,14 @@ jobs:
           mkdir -p "$TARGET_LIB_DIR"
 
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            # Remove lite to avoid conflicts if present
-
-            # Copy all static libs (.a)
-            # Use find to avoid "argument list too long" or globbing errors
-            find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*.a" -exec cp {} "$TARGET_LIB_DIR/" \;
-            cp "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            find "$VCPKG_LIB_DIR" -maxdepth 1 \( -name "*.a" -o -name "*.lib" \) -exec cp {} "$TARGET_LIB_DIR/" \;
+            cp "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
           else
-            # Copy all dynamic libs (.so) and their symlinks
-            find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*.so*" -exec cp -d {} "$TARGET_LIB_DIR/" \;
-            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
+            find "$VCPKG_LIB_DIR" -maxdepth 1 \( -name "*.so*" -o -name "*.dylib" -o -name "*.dll" -o -name "*.lib" \) -exec cp -d {} "$TARGET_LIB_DIR/" \;
+            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib"* "$TARGET_LIB_DIR/" 2>/dev/null || true
           fi
 
           cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
