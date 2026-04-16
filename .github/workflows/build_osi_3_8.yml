@@ -312,14 +312,14 @@ jobs:
           mkdir -p "$TARGET_LIB_DIR"
 
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            find "$VCPKG_LIB_DIR" -maxdepth 1 \( -name "*.a" -o -name "*.lib" \) -exec cp {} "$TARGET_LIB_DIR/" \;
+            find "$VCPKG_LIB_DIR" -maxdepth 1 ! -type d -exec cp -d {} "$TARGET_LIB_DIR/" \;
             cp "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
           else
-            find "$VCPKG_LIB_DIR" -maxdepth 1 \( -name "*.so*" -o -name "*.dylib" -o -name "*.dll" -o -name "*.lib" \) -exec cp -d {} "$TARGET_LIB_DIR/" \;
+            find "$VCPKG_LIB_DIR" -maxdepth 1 ! -type d -exec cp -d {} "$TARGET_LIB_DIR/" \;
             cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || \
             cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib"* "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.dylib"* "$TARGET_LIB_DIR/" 2>/dev/null || true
           fi
 
           cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
@@ -351,7 +351,7 @@ jobs:
       - name: Bundle platform package
         shell: bash
         run: |
-          FINAL_DIR="osi-3.8-${{ matrix.os }}"
+          FINAL_DIR="${{ matrix.os }}"
           mkdir -p "$FINAL_DIR"
 
           for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
