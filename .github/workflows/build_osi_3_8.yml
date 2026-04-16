@@ -354,29 +354,22 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu, mac, windows]
-        include:
-          - os: ubuntu-22.04
-            artifact-name: osi-3.8-linux
-          - os: macos-14
-            artifact-name: osi-3.8-macos
-          - os: windows-2022
-            artifact-name: osi-3.8-windows
+        os: [linux, macos, windows]
 
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: package-${{ matrix.artifact-name }}*
+          pattern: package-osi-3.8-${{ matrix.os }}*
           path: staging
 
       - name: Bundle platform package
         shell: bash
         run: |
-          FINAL_DIR="${{ matrix.artifact-name }}"
+          FINAL_DIR="osi-3.8-${{ matrix.os }}"
           mkdir -p "$FINAL_DIR"
 
-          for tarfile in staging/package-${{ matrix.artifact-name }}*/*.tar; do
+          for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
             tar -xvf "$tarfile" -C "$FINAL_DIR"
           done
           tar -cJvf "${FINAL_DIR}.tar.xz" -C "$FINAL_DIR" .
@@ -384,6 +377,6 @@ jobs:
       - name: Upload Final Master Package
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact-name }}-complete
+          name: osi-3.8-${{ matrix.os }}-complete
           path: "*.tar.xz"
 
