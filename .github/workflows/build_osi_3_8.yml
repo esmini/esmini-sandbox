@@ -298,6 +298,8 @@ jobs:
             LIB_DIR_NAME="lib-dyn"
           fi
 
+          cp -r "${{ github.workspace }}/osi-deps/include/osi3/." "$INCLUDE_DIR"
+          rm -rf "${{ github.workspace }}/osi-deps/include/osi3"
           cp -r "${{ github.workspace }}/osi-deps/include/." "$INCLUDE_DIR"
           cp -r "$VCPKG_INSTALLED_DIR/include/." "$INCLUDE_DIR"
 
