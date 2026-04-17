@@ -280,55 +280,75 @@ jobs:
       - name: Archive Artifacts
         shell: bash
         run: |
+          # 1. Setup Path Variables
           VCPKG_INSTALLED_DIR="build-osi-deps/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}"
+
           if [ "${{ matrix.configuration }}" = "Release" ]; then
             VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/lib"
+            CONF_DIR="release"
           else
             VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/debug/lib"
+            CONF_DIR="debug"
           fi
 
           STAGING_DIR="osi-package"
-          INCLUDE_DIR="$STAGING_DIR/include"
+          mkdir -p "$STAGING_DIR/include"
 
-          mkdir -p "$INCLUDE_DIR"
-
-          if [ "${{ matrix.linkage }}" = "static" ]; then
-            LIB_DIR_NAME="lib"
-          else
-            LIB_DIR_NAME="lib-dyn"
+          # 2. Fix Includes Logic: Flatten osi3
+          # Copy everything from osi3 directly into include
+          if [ -d "${{ github.workspace }}/osi-deps/include/osi3" ]; then
+            cp -R "${{ github.workspace }}/osi-deps/include/osi3/." "$STAGING_DIR/include/"
           fi
 
-          cp -r "${{ github.workspace }}/osi-deps/include/osi3/." "$INCLUDE_DIR"
-          rm -rf "${{ github.workspace }}/osi-deps/include/osi3"
-          cp -r "${{ github.workspace }}/osi-deps/include/." "$INCLUDE_DIR"
-          cp -r "$VCPKG_INSTALLED_DIR/include/." "$INCLUDE_DIR"
-
-
-          if [ "${{ matrix.configuration }}" = "Release" ]; then
-            TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/release"
-            TARGET_DEPS_LIB_DIR="$STAGING_DIR/deps/release"
-          else
-            TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/debug"
-            TARGET_DEPS_LIB_DIR="$STAGING_DIR/deps/debug"
+          # Copy everything else from osi-deps/include (excluding the now redundant osi3 folder)
+          if [ -d "${{ github.workspace }}/osi-deps/include" ]; then
+            # This copies other headers like open_simulation_interface.pb.h
+            cp -R "${{ github.workspace }}/osi-deps/include/." "$STAGING_DIR/include/"
+            # Remove the osi3 folder from the STAGING directory to keep it clean
+            rm -rf "$STAGING_DIR/include/osi3"
           fi
+
+          # Copy vcpkg headers (google protobuf, etc.)
+          if [ -d "$VCPKG_INSTALLED_DIR/include" ]; then
+            cp -R "$VCPKG_INSTALLED_DIR/include/." "$STAGING_DIR/include/"
+          fi
+
+          # 3. Setup Library Folders
+          LIB_DIR_NAME="lib-dyn"
+          [ "${{ matrix.linkage }}" = "static" ] && LIB_DIR_NAME="lib"
+
+          TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/$CONF_DIR"
+          TARGET_DEPS_LIB_DIR="$STAGING_DIR/deps/$CONF_DIR"
           mkdir -p "$TARGET_LIB_DIR"
           mkdir -p "$TARGET_DEPS_LIB_DIR"
 
-          find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*protobuf*" -exec mv {} "$TARGET_LIB_DIR/" \;
-          find "$VCPKG_LIB_DIR" -maxdepth 1 ! -type d -exec cp -d {} "$TARGET_DEPS_LIB_DIR/" \;
+          # 4. Move Protobuf using a loop (Fix for Mac empty folder issue)
+          echo "Moving Protobuf from $VCPKG_LIB_DIR to $TARGET_LIB_DIR"
+          for f in "$VCPKG_LIB_DIR"/*protobuf*; do
+              [ -e "$f" ] && mv "$f" "$TARGET_LIB_DIR/"
+          done
 
+          # 5. Copy remaining dependencies to deps (Fix for Mac find quirks)
+          echo "Copying remaining deps to $TARGET_DEPS_LIB_DIR"
+          find "$VCPKG_LIB_DIR" -maxdepth 1 \( -type f -o -type l \) -exec cp -RP {} "$TARGET_DEPS_LIB_DIR/" \;
+
+          # 6. OSI Library Fallback Logic
+          OSI_SRC_DIR="${{ github.workspace }}/osi-deps/lib"
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
           else
-            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.dylib"* "$TARGET_LIB_DIR/" 2>/dev/null || true
+            # Try all extensions for dynamic linking
+            cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -RP "$OSI_SRC_DIR/libopen_simulation_interface"*.dylib* "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
           fi
 
-          cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
-          find "$STAGING_DIR" -name "libprotobuf-lite*" -delete
+          # 7. Finalize
+          [ -f "${{ github.workspace }}/osi-build-metadata.txt" ] && cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
+          find "$STAGING_DIR" -name "*protobuf-lite*" -delete
+
           tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar" -C "$STAGING_DIR" .
 
       - name: Upload OSI artifacts
