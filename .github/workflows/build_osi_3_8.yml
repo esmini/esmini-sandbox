@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: 2
@@ -385,7 +385,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          name: osi-3.8-${{ matrix.os }}-complete-b${{ github.run_number }}
+          tag_name: "build-${{ env.BUILD_NUMBER }}"
+          name: osi-3.8-${{ matrix.os }}-complete-b${{ env.BUILD_NUMBER }}
           body: 'osi build containing debug, release, static and dynamic files per platform'
           files: "*.tar.xz"
 
