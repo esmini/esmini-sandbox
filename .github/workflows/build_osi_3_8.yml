@@ -385,8 +385,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "build-${{ env.BUILD_NUMBER }}"
-          name: osi-3.8-${{ matrix.os }}-complete-b${{ env.BUILD_NUMBER }}
+          tag_name: "build-${{ github.run_number }}"
+          name: osi-3.8-${{ matrix.os }}-complete-b${{ github.run_number }}
           body: 'osi build containing debug, release, static and dynamic files per platform'
           files: "*.tar.xz"
 
