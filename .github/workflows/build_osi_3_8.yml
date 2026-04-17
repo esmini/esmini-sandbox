@@ -324,9 +324,7 @@ jobs:
 
           # 4. Move Protobuf using a loop (Fix for Mac empty folder issue)
           echo "Moving Protobuf from $VCPKG_LIB_DIR to $TARGET_LIB_DIR"
-          for f in "$VCPKG_LIB_DIR"/*protobuf*; do
-              [ -e "$f" ] && mv "$f" "$TARGET_LIB_DIR/"
-          done
+          find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*protobuf*" -exec mv {} "$TARGET_LIB_DIR/" \;
 
           # 5. Copy remaining dependencies to deps (Fix for Mac find quirks)
           echo "Copying remaining deps to $TARGET_DEPS_LIB_DIR"
