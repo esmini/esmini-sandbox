@@ -382,9 +382,10 @@ jobs:
           done
           tar -cJvf "${FINAL_DIR}.tar.xz" -C "$FINAL_DIR" .
 
-      - name: Upload Final Master Package
-        uses: actions/upload-artifact@v7
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
           name: osi-3.8-${{ matrix.os }}-complete
-          path: "*.tar.xz"
+          body: 'osi build containing debug, release, static and dynamic files per platform'
+          files: "*.tar.xz"
 
