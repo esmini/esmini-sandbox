@@ -375,7 +375,7 @@ jobs:
         shell: bash
         run: |
           FINAL_DIR="osi-3.8-${{ matrix.os }}"
-          mkdir -p "$FINAL_DIR"
+          mkdir -p "$FINAL_DIR/${{ matrix.os }}"
 
           for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
             tar -xvf "$tarfile" -C "$FINAL_DIR/${{ matrix.os }}"
