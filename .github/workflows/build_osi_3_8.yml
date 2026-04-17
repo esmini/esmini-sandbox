@@ -153,7 +153,7 @@ jobs:
           runVcpkgInstall: true
           vcpkgArguments: >
             --overlay-triplets=${{ github.workspace }}/vcpkg-triplets
-            --triplet=${{ matrix.triplet }}
+            --triplet=${{ matrix.triplet }}-${{ matrix.linkage }}
 
       # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
       # Then we do cmake, notes:
@@ -306,19 +306,24 @@ jobs:
 
           if [ "${{ matrix.configuration }}" = "Release" ]; then
             TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/release"
+            TARGET_DEPS_LIB_DIR="$STAGING_DIR/deps/release"
           else
             TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/debug"
+            TARGET_DEPS_LIB_DIR="$STAGING_DIR/deps/debug"
           fi
           mkdir -p "$TARGET_LIB_DIR"
+          mkdir -p "$TARGET_DEPS_LIB_DIR"
+
+          find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*protobuf*" -exec mv {} "$TARGET_LIB_DIR/" \;
+          find "$VCPKG_LIB_DIR" -maxdepth 1 ! -type d -exec cp -d {} "$TARGET_DEPS_LIB_DIR/" \;
 
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            find "$VCPKG_LIB_DIR" -maxdepth 1 ! -type d -exec cp -d {} "$TARGET_LIB_DIR/" \;
-            cp "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
+            cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
           else
-            find "$VCPKG_LIB_DIR" -maxdepth 1 ! -type d -exec cp -d {} "$TARGET_LIB_DIR/" \;
             cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || \
             cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -d "${{ github.workspace }}/osi-deps/lib/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || \
             cp -d "${{ github.workspace }}/osi-deps/lib/libopen_simulation_interface.dylib"* "$TARGET_LIB_DIR/" 2>/dev/null || true
           fi
 
