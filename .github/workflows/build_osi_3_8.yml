@@ -374,13 +374,22 @@ jobs:
       - name: Bundle platform package
         shell: bash
         run: |
-          FINAL_DIR="osi-3.8-${{ matrix.os }}"
-          mkdir -p "$FINAL_DIR/${{ matrix.os }}"
+          PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
+
+          if [ ${{ matrix.os }} = "linux" ]; then
+            FINAL_DIR="PACKAGE_NAME/linux"
+          elif [ ${{ matrix.os }} = "windows" ]; then
+            FINAL_DIR="PACKAGE_NAME/v10"
+          else
+            FINAL_DIR="PACKAGE_NAME/mac"
+          fi
+
+          mkdir -p "$FINAL_DIR"
 
           for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
-            tar -xvf "$tarfile" -C "$FINAL_DIR/${{ matrix.os }}"
+            tar -xvf "$tarfile" -C "$FINAL_DIR"
           done
-          tar -cJvf "${FINAL_DIR}.tar.xz" -C "$FINAL_DIR" .
+          tar -cJvf "${PACKAGE_NAME}.tar.xz" -C "${PACKAGE_NAME}" .
 
       - name: Release
         uses: softprops/action-gh-release@v2
