@@ -377,11 +377,11 @@ jobs:
           PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
 
           if [ ${{ matrix.os }} = "linux" ]; then
-            FINAL_DIR="PACKAGE_NAME/linux"
+            FINAL_DIR="$PACKAGE_NAME/linux"
           elif [ ${{ matrix.os }} = "windows" ]; then
-            FINAL_DIR="PACKAGE_NAME/v10"
+            FINAL_DIR="$PACKAGE_NAME/v10"
           else
-            FINAL_DIR="PACKAGE_NAME/mac"
+            FINAL_DIR="$PACKAGE_NAME/mac"
           fi
 
           mkdir -p "$FINAL_DIR"
