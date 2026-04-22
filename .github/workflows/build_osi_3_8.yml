@@ -278,6 +278,7 @@ jobs:
           EOF
 
       - name: Archive Artifacts
+        if: "!(matrix.os == 'windows-2022' && matrix.linkage == 'dynamic')"
         shell: bash
         run: |
           # 1. Setup Path Variables
@@ -346,6 +347,7 @@ jobs:
           # 7. Finalize
           [ -f "${{ github.workspace }}/osi-build-metadata.txt" ] && cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
           find "$STAGING_DIR" -name "*protobuf-lite*" -delete
+          find "$STAGING_DIR" -name "libprotoc*" -delete
 
           tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar" -C "$STAGING_DIR" .
 
