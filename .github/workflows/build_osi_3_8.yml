@@ -144,16 +144,14 @@ jobs:
       - name: Setup vcpkg
         if: steps.cache-osi.outputs.cache-hit != 'true'
         uses: lukka/run-vcpkg@v11 # lukka/run-vcpkg handles binary caching, env variables for cmake and error logging
-        with:
+        env:
           VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}-${{ matrix.linkage }}
           VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/vcpkg-triplets
-          vcpkgDirectory: ${{ runner.temp }}/vcpkg # Create a new clean vcpkg dir
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg # Create a new clean vcpkg dir inside workspace
           vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }} # Use the vcpkg baseline saved earlier (which depends asam-osi-utils commit used)
           vcpkgJsonGlob: 'asam-osi-utilities/vcpkg.json'
           runVcpkgInstall: true
-          vcpkgArguments: >
-            --overlay-triplets=${{ github.workspace }}/vcpkg-triplets
-            --triplet=${{ matrix.triplet }}-${{ matrix.linkage }}
 
       # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
       # Then we do cmake, notes:
@@ -169,7 +167,7 @@ jobs:
             SHARED_FLAG="ON"
           fi
 
-          VCPKG_TC="${{ runner.temp }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          VCPKG_TC="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
           VCPKG_TC="${VCPKG_TC//\\//}"
           OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
           OSX_ARCH_ARGS=()
@@ -185,10 +183,11 @@ jobs:
             $OVERLAY_ARG \
             "${OSX_ARCH_ARGS[@]}" \
             ${{ matrix.cmake-generator }} \
+            -DBUILD_SHARED_LIBS=$SHARED_FLAG \
+            -DLINK_WITH_SHARED_OSI=$SHARED_FLAG
             -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
             -DBUILD_TESTING=OFF \
             -DBUILD_EXAMPLES=OFF \
-            -DLINK_WITH_SHARED_OSI=$SHARED_FLAG
 
       # Building into binaries stored in build-osi-deps
       - name: Build asam-osi-utilities
@@ -277,11 +276,9 @@ jobs:
           - cache hit: ${{ steps.cache-osi.outputs.cache-hit || 'false' }}
           EOF
 
-
-      - name: Debugging with tmate
-        if: matrix.os == 'window-2022'
-        uses: mxschmitt/action-tmate@v3
-
+      # - name: Debugging with tmate
+      #   if: matrix.os == 'windows-2022'
+      #   uses: mxschmitt/action-tmate@v3
 
       - name: Archive Artifacts
         if: "!(matrix.os == 'windows-2022' && matrix.linkage == 'dynamic')"
