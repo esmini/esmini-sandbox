@@ -70,20 +70,20 @@ jobs:
           if [ "${{ runner.os }}" = "macOS" ]; then
             echo "set(VCPKG_TARGET_ARCHITECTURE arm64)" > "$DEST"
             echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
-            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE static" >> "$DEST"
             echo "set(VCPKG_CMAKE_SYSTEM_NAME Darwin)" >> "$DEST"
             echo "set(VCPKG_OSX_ARCHITECTURES \"arm64;x86_64\")" >> "$DEST"
 
           elif [ "${{ runner.os }}" = "Windows" ]; then
             echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
             echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
-            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE static" >> "$DEST"
             echo "set(VCPKG_PLATFORM_TOOLSET v142)" >> "$DEST"
 
           else # Linux
             echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
             echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
-            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE static" >> "$DEST"
             echo "set(VCPKG_CMAKE_SYSTEM_NAME Linux)" >> "$DEST"
             echo "set(VCPKG_CXX_FLAGS \"-fPIC\")" >> "$DEST"
             echo "set(VCPKG_C_FLAGS \"-fPIC\")" >> "$DEST"
@@ -335,8 +335,8 @@ jobs:
           OSI_SRC_DIR="${{ github.workspace }}/osi-deps/lib"
           if [ "${{ matrix.linkage }}" = "static" ]; then
             cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
-            cp -P "$OSI_SRC_DIR/open_simulation_interface.dll" "$TARGET_LIB_DIR/open_simulation_interface_pic.dll" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || true
           else
             # Try all extensions for dynamic linking
             cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
