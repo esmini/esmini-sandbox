@@ -184,7 +184,7 @@ jobs:
             "${OSX_ARCH_ARGS[@]}" \
             ${{ matrix.cmake-generator }} \
             -DBUILD_SHARED_LIBS=$SHARED_FLAG \
-            -DLINK_WITH_SHARED_OSI=$SHARED_FLAG
+            -DLINK_WITH_SHARED_OSI=$SHARED_FLAG \
             -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
             -DBUILD_TESTING=OFF \
             -DBUILD_EXAMPLES=OFF \
