@@ -83,6 +83,19 @@ jobs:
             echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
             echo "set(VCPKG_PLATFORM_TOOLSET v142)" >> "$DEST"
 
+            # Disable Whole Program Optimization globally to kill the 220MB bloat
+            echo 'set(VCPKG_CXX_FLAGS "/nologo /GL-")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS "/nologo /GL-")' >> "$DEST"
+
+            # RELEASE: Fast code, no symbols
+            echo 'set(VCPKG_CXX_FLAGS_RELEASE "/O2 /Oi /Gy /DNDEBUG")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS_RELEASE "/O2 /Oi /Gy /DNDEBUG")' >> "$DEST"
+
+            # DEBUG: Debug Symbols (/Z7)
+            # /Z7 puts symbols in the .lib but doesn't use the bulky /GL format
+            echo 'set(VCPKG_CXX_FLAGS_DEBUG "/Z7")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS_DEBUG "/Z7")' >> "$DEST"
+
           else # Linux
             echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
             echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
@@ -336,8 +349,13 @@ jobs:
           # 6. OSI Library Fallback Logic
           OSI_SRC_DIR="${{ github.workspace }}/osi-deps/lib"
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
-            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface.lib" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/libopen_simulation_interface.a" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+
+            # 2. Independent utilities (No chaining, just ignore if missing)
+            cp -P "$OSI_SRC_DIR/OSIUtilities.a" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/OSIUtilities.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
           else
             # Try all extensions for dynamic linking
             cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
