@@ -247,7 +247,7 @@ jobs:
           CMAKE_PREFIX_PATH="${{ github.workspace }}/osi-deps;${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}"
           PROTOC_PATH="${{ github.workspace }}/build-osi-deps/vcpkg_installed/${{ matrix.triplet }}/tools/protobuf/protoc${PROTOC_EXT}"
 
-          cat > osi-build-metadata.txt <<EOF
+          cat > ${{ matrix.os }}-${{ matrix.configuration }}-${{ matrix.linkage }}-metadata.txt <<EOF
           asam-osi-utilities repository: ${{ env.OSI_UTILITIES_REPOSITORY }}
           asam-osi-utilities ref: ${{ env.OSI_UTILITIES_REF }}
           asam-osi-utilities commit: ${{ steps.versions.outputs.source-sha }}
@@ -260,7 +260,6 @@ jobs:
           CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}
           Protobuf protoc: ${PROTOC_PATH}
           Protobuf protoc version: ${{ steps.proto-ver.outputs.protoc-version }}
-          linkage: ${{ matrix.linkage }}
           EOF
 
       # Publish summary on actions -> run
@@ -301,17 +300,14 @@ jobs:
           STAGING_DIR="osi-package"
           mkdir -p "$STAGING_DIR/include"
 
-          # 2. Fix Includes Logic: Flatten osi3
           # Copy everything from osi3 directly into include
           if [ -d "${{ github.workspace }}/osi-deps/include/osi3" ]; then
             cp -R "${{ github.workspace }}/osi-deps/include/osi3/." "$STAGING_DIR/include/"
           fi
 
-          # Copy everything else from osi-deps/include (excluding the now redundant osi3 folder)
+          # Copy everything else from osi-deps/include
           if [ -d "${{ github.workspace }}/osi-deps/include" ]; then
-            # This copies other headers like open_simulation_interface.pb.h
             cp -R "${{ github.workspace }}/osi-deps/include/." "$STAGING_DIR/include/"
-            # Remove the osi3 folder from the STAGING directory to keep it clean
             rm -rf "$STAGING_DIR/include/osi3"
           fi
 
@@ -335,7 +331,7 @@ jobs:
 
           # 5. Copy remaining dependencies to deps (Fix for Mac find quirks)
           echo "Copying remaining deps to $TARGET_DEPS_LIB_DIR"
-          find "$VCPKG_LIB_DIR" -maxdepth 1 \( -type f -o -type l \) -exec cp -RP {} "$TARGET_DEPS_LIB_DIR/" \;
+          find "$VCPKG_LIB_DIR" -maxdepth 1 \( -type f -o -type l \) \( -name "*.lib" -o -name "*.a" \) -exec cp -RP {} "$TARGET_DEPS_LIB_DIR/" \;
 
           # 6. OSI Library Fallback Logic
           OSI_SRC_DIR="${{ github.workspace }}/osi-deps/lib"
@@ -349,7 +345,7 @@ jobs:
           fi
 
           # 7. Finalize
-          [ -f "${{ github.workspace }}/osi-build-metadata.txt" ] && cp "${{ github.workspace }}/osi-build-metadata.txt" "$STAGING_DIR/"
+          [ -f "${{ github.workspace }}/${{ matrix.os }}-${{ matrix.configuration }}-${{ matrix.linkage }}-metadata.txt" ] && cp "${{ github.workspace }}/${{ matrix.os }}-${{ matrix.configuration }}-${{ matrix.linkage }}-metadata.txt" "$STAGING_DIR/"
           find "$STAGING_DIR" -name "*protobuf-lite*" -delete
           find "$STAGING_DIR" -name "libprotoc*" -delete
 
