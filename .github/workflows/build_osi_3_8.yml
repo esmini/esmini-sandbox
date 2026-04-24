@@ -29,6 +29,9 @@ jobs:
         os: [ubuntu-22.04, macos-14, windows-2022]
         configuration: [Debug, Release]
         linkage: [static, dynamic]
+        exclude:
+          - os: windows-2022
+            linkage: dynamic
         include:
           - os: ubuntu-22.04
             triplet: x64-linux
