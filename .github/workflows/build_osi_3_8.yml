@@ -88,13 +88,13 @@ jobs:
             echo 'set(VCPKG_C_FLAGS "/nologo /GL-")' >> "$DEST"
 
             # RELEASE: Fast code, no symbols
-            echo 'set(VCPKG_CXX_FLAGS_RELEASE "/O2 /Oi /Gy /DNDEBUG")' >> "$DEST"
-            echo 'set(VCPKG_C_FLAGS_RELEASE "/O2 /Oi /Gy /DNDEBUG")' >> "$DEST"
+            echo 'set(VCPKG_CXX_FLAGS_RELEASE "/O2 /Oi /Gy /Gw /DNDEBUG /Z7- /Zi-")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS_RELEASE "/O2 /Oi /Gy /Gw /DNDEBUG /Z7- /Zi-")' >> "$DEST"
 
             # DEBUG: Debug Symbols (/Z7)
             # /Z7 puts symbols in the .lib but doesn't use the bulky /GL format
-            echo 'set(VCPKG_CXX_FLAGS_DEBUG "/Z7")' >> "$DEST"
-            echo 'set(VCPKG_C_FLAGS_DEBUG "/Z7")' >> "$DEST"
+            echo 'set(VCPKG_CXX_FLAGS_DEBUG "/Od /Z7 /Gy /Gw /RTC1")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS_DEBUG "/Od /Z7 /Gy /Gw /RTC1")' >> "$DEST"
 
           else # Linux
             echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
