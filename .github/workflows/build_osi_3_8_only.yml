@@ -1,0 +1,406 @@
+name: Build OSI 3.8
+
+on:
+  push:
+    branches:
+      - only_build_osi_3_8
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 2
+  OSI_REPOSITORY: OpenSimulationInterface/osi-cpp
+  OSI_REF: 82add6cd443ea1e1dd81b3023ba756b74913c43b
+
+jobs:
+  build:
+    name: ${{ matrix.os }} ${{ matrix.configuration }} ${{ matrix.linkage }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        # os: [ubuntu-22.04, macos-14, windows-2022]
+        configuration: [Debug, Release]
+        linkage: [static, dynamic]
+        # exclude:
+        #   - os: windows-2022
+        #     linkage: dynamic
+        include:
+          - os: ubuntu-22.04
+            triplet: x64-linux
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-linux
+          - os: macos-14
+            triplet: universal-osx
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-macos
+          - os: windows-2022
+            triplet: x64-windows-static-md-v142
+            cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
+            artifact-name: osi-3.8-windows
+
+    steps:
+      - name: Checkout workflow repository
+        uses: actions/checkout@v6
+
+      - name: Checkout osi-cpp
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.OSI_REPOSITORY }}
+          ref: ${{ env.OSI_REF }}
+          path: osi-cpp
+          submodules: recursive
+
+      # "triplet" is vcpkg config that tells vcpkg three things:
+      # 1. What architecture
+      # 2. What OS
+      # 3. How to link
+      # Covers all the triplet names under "include" in the strategy step
+      - name: Create overlay triplets
+        shell: bash
+        run: |
+          FILENAME="${{ matrix.triplet }}-${{ matrix.linkage }}.cmake"
+          mkdir -p ${{ github.workspace }}/vcpkg-triplets
+          DEST="${{ github.workspace }}/vcpkg-triplets/$FILENAME"
+
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            echo "set(VCPKG_TARGET_ARCHITECTURE arm64)" > "$DEST"
+            echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_CMAKE_SYSTEM_NAME Darwin)" >> "$DEST"
+            echo "set(VCPKG_OSX_ARCHITECTURES \"arm64;x86_64\")" >> "$DEST"
+
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
+            echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_PLATFORM_TOOLSET v142)" >> "$DEST"
+
+            # Disable Whole Program Optimization globally to kill the 220MB bloat
+            echo 'set(VCPKG_CXX_FLAGS "/nologo /GL-")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS "/nologo /GL-")' >> "$DEST"
+
+            # RELEASE: Fast code, no symbols
+            echo 'set(VCPKG_CXX_FLAGS_RELEASE "/O2 /Oi /Gy /Gw /DNDEBUG /Z7- /Zi-")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS_RELEASE "/O2 /Oi /Gy /Gw /DNDEBUG /Z7- /Zi-")' >> "$DEST"
+
+            # DEBUG: Debug Symbols (/Z7)
+            # /Z7 puts symbols in the .lib but doesn't use the bulky /GL format
+            echo 'set(VCPKG_CXX_FLAGS_DEBUG "/Od /Z7 /Gy /Gw /RTC1")' >> "$DEST"
+            echo 'set(VCPKG_C_FLAGS_DEBUG "/Od /Z7 /Gy /Gw /RTC1")' >> "$DEST"
+
+          else # Linux
+            echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
+            echo "set(VCPKG_CRT_LINKAGE dynamic)" >> "$DEST"
+            echo "set(VCPKG_LIBRARY_LINKAGE ${{ matrix.linkage }})" >> "$DEST"
+            echo "set(VCPKG_CMAKE_SYSTEM_NAME Linux)" >> "$DEST"
+            echo "set(VCPKG_CXX_FLAGS \"-fPIC\")" >> "$DEST"
+            echo "set(VCPKG_C_FLAGS \"-fPIC\")" >> "$DEST"
+          fi
+
+      # Storing some meta data about the build, last steps exports data to $GITHUB_OUTPUT which can be accessed in later action
+      # Note: Using python to write to json as it is easier than doing it via bash
+      - name: Derive source and vcpkg versions
+        id: versions
+        shell: bash
+        run: |
+          SOURCE_SHA=$(git -C osi-cpp rev-parse HEAD)
+          SOURCE_VERSION=$(python3 - <<'PY'
+          import json
+          with open('osi-cpp/vcpkg.json', encoding='utf-8') as handle:
+              print(json.load(handle)['version-string'])
+          PY
+          )
+          VCPKG_BASELINE=$(python3 - <<'PY'
+          import json
+          with open('osi-cpp/vcpkg-configuration.json', encoding='utf-8') as handle:
+              print(json.load(handle)['default-registry']['baseline'])
+          PY
+          )
+
+          echo "source-sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "source-version=${SOURCE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "vcpkg-baseline=${VCPKG_BASELINE}" >> "$GITHUB_OUTPUT"
+
+      # Restore the cache if new cfg made (manually updated v1->v2 etc.) or asam-osi-utilities hash changed or vcpkg baseline changed (dependencies updated)
+      # We only try to restore a cache here, not saving it (which happens later after successful build)
+      - name: Restore OSI build cache
+        id: cache-osi
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ github.workspace }}/build-osi
+          key: osi-3.8-singlecfg-v3-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+
+      # vcpkg talk directly to github caching servers, using github-script to fetch paths so vcpkg can upload compiled files during cache save.
+      # Useful because if cache for one compiled package isn't found it will recompile only the one which isn't found but download the others
+      # Note: Only runs if we didn't hit the cache
+      - name: Export GitHub Actions cache environment
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env['ACTIONS_CACHE_URL'] || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN'] || '');
+            core.exportVariable('VCPKG_BINARY_SOURCES', 'clear;x-gha,readwrite');
+
+      # This action does 3 steps:
+      # 1. Bootstraps vcpkg to location and specific commit
+      # 2. Integrates the cache of $ACTION_CACHE_URL
+      # 3. Installs dependencies from vcpkg.json (from asam-osi-utils)
+      # Note: Only runs if we didn't hit the cache
+      - name: Setup vcpkg
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        uses: lukka/run-vcpkg@v11 # lukka/run-vcpkg handles binary caching, env variables for cmake and error logging
+        env:
+          VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}-${{ matrix.linkage }}
+          VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/vcpkg-triplets
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg # Create a new clean vcpkg dir inside workspace
+          vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }} # Use the vcpkg baseline saved earlier (which depends asam-osi-utils commit used)
+          vcpkgJsonGlob: 'osi-cpp/vcpkg.json'
+          runVcpkgInstall: true
+
+      # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
+      # Then we do cmake, notes:
+      # CMAKE_TOOLCHAIN_FILE ensures we look for libraries in vcpkg folder and NOT in system
+      # VCPKG_TARGET_TRIPLET tells which OS/Architecture to use
+      # Note: Only runs if we didn't hit the cache
+      - name: Configure osi-cpp
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          SHARED_FLAG="OFF"
+          if [ "${{ matrix.linkage }}" = "dynamic" ]; then
+            SHARED_FLAG="ON"
+          fi
+
+          VCPKG_TC="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          VCPKG_TC="${VCPKG_TC//\\//}"
+          OVERLAY_ARG="-DVCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}/vcpkg-triplets"
+          OSX_ARCH_ARGS=()
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            OSX_ARCH_ARGS=("-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64")
+          fi
+
+          cmake \
+            -S osi-cpp \
+            -B build-osi \
+            --preset vcpkg \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}-${{ matrix.linkage }} \
+            $OVERLAY_ARG \
+            "${OSX_ARCH_ARGS[@]}" \
+            ${{ matrix.cmake-generator }} \
+            -DBUILD_SHARED_LIBS=$SHARED_FLAG \
+            -DLINK_WITH_SHARED_OSI=$SHARED_FLAG \
+            -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+
+      # Building into binaries stored in build-osi-deps
+      - name: Build osi
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        shell: bash
+        run: cmake --build build-osi --config ${{ matrix.configuration }}
+
+      # - name: Install asam-osi-utilities
+      #   if: steps.cache-osi.outputs.cache-hit != 'true'
+      #   shell: bash
+      #   run: cmake --install build-osi-deps --config ${{ matrix.configuration }} --prefix osi-deps
+
+      # Saving the cache, essentially mirrors the reestore step but saves instead
+      - name: Save OSI build cache
+        if: steps.cache-osi.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ github.workspace }}/build-osi
+          key: osi-3.8-singlecfg-v3-${{ runner.os }}-${{ matrix.triplet }}-${{ matrix.configuration }}-${{ matrix.linkage }}-${{ steps.versions.outputs.source-sha }}-${{ steps.versions.outputs.vcpkg-baseline }}
+
+      - name: Extract Protobuf Compiler Version
+        id: proto-ver
+        shell: bash
+        run: |
+          TOOLS_DIR="build-osi/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}/tools/protobuf"
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            PROTOC_BIN=$(ls $TOOLS_DIR/protoc*.exe | head -n 1)
+          else
+            PROTOC_BIN=$(ls $TOOLS_DIR/protoc* | head -n 1)
+          fi
+
+          if [ -f "$PROTOC_BIN" ]; then
+            VERSION=$($PROTOC_BIN --version | awk '{print $2}')
+          else
+            VERSION="unknown"
+          fi
+
+          echo "protoc-version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Protoc version found: ${VERSION}"
+
+      # Saving a bunch of information about the build which is saved into osi-build-metadata.txt. Useful to make sense of what happened and what was used
+      - name: Write build metadata
+        shell: bash
+        run: |
+          PROTOC_EXT=""
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PROTOC_EXT=".exe"
+          fi
+
+          CMAKE_PREFIX_PATH="${{ github.workspace }}/build-osi/vcpkg_installed/${{ matrix.triplet }}"
+          PROTOC_PATH="${{ github.workspace }}/build-osi/vcpkg_installed/${{ matrix.triplet }}/tools/protobuf/protoc${PROTOC_EXT}"
+
+          cat > ${{ matrix.os }}-${{ matrix.configuration }}-${{ matrix.linkage }}-metadata.txt <<EOF
+          osi repository: ${{ env.OSI_REPOSITORY }}
+          osi ref: ${{ env.OSI_REF }}
+          osi commit: ${{ steps.versions.outputs.source-sha }}
+          osi version: ${{ steps.versions.outputs.source-version }}
+          vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
+          runner: ${{ runner.os }}
+          configuration: ${{ matrix.configuration }}
+          triplet: ${{ matrix.triplet }}
+          OSI prefix: ${OSI_PREFIX}
+          CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}
+          Protobuf protoc: ${PROTOC_PATH}
+          Protobuf protoc version: ${{ steps.proto-ver.outputs.protoc-version }}
+          EOF
+
+      # Publish summary on actions -> run
+      - name: Publish job summary
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## OSI 3.8 build
+
+          - osi commit: ${{ steps.versions.outputs.source-sha }}
+          - osi version: ${{ steps.versions.outputs.source-version }}
+          - vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
+          - runner: ${{ runner.os }}
+          - configuration: ${{ matrix.configuration }}
+          - triplet: ${{ matrix.triplet }}
+          - cache hit: ${{ steps.cache-osi.outputs.cache-hit || 'false' }}
+          EOF
+
+      # - name: Debugging with tmate
+      #   if: matrix.os == 'windows-2022'
+      #   uses: mxschmitt/action-tmate@v3
+
+      - name: Archive Artifacts
+        if: "!(matrix.os == 'windows-2022' && matrix.linkage == 'dynamic')"
+        shell: bash
+        run: |
+          # 1. Setup Path Variables
+          VCPKG_INSTALLED_DIR="build-osi/vcpkg_installed/${{ matrix.triplet }}-${{ matrix.linkage }}"
+
+          if [ "${{ matrix.configuration }}" = "Release" ]; then
+            VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/lib"
+            CONF_DIR="release"
+          else
+            VCPKG_LIB_DIR="$VCPKG_INSTALLED_DIR/debug/lib"
+            CONF_DIR="debug"
+          fi
+
+          STAGING_DIR="osi-package"
+          mkdir -p "$STAGING_DIR/include"
+
+          # Copy everything from osi3 directly into include
+          if [ -d "${{ github.workspace }}/build-osi/include/osi3" ]; then
+            cp -R "${{ github.workspace }}/build-osi/include/osi3/." "$STAGING_DIR/include/"
+          fi
+
+          # Copy vcpkg headers (google protobuf, etc.)
+          if [ -d "$VCPKG_INSTALLED_DIR/include" ]; then
+            cp -R "$VCPKG_INSTALLED_DIR/include/." "$STAGING_DIR/include/"
+          fi
+
+          # 3. Setup Library Folders
+          LIB_DIR_NAME="lib-dyn"
+          [ "${{ matrix.linkage }}" = "static" ] && LIB_DIR_NAME="lib"
+
+          TARGET_LIB_DIR="$STAGING_DIR/$LIB_DIR_NAME/$CONF_DIR"
+          TARGET_DEPS_LIB_DIR="$STAGING_DIR/deps/$CONF_DIR"
+          mkdir -p "$TARGET_LIB_DIR"
+          mkdir -p "$TARGET_DEPS_LIB_DIR"
+
+          # 4. Move Protobuf using a loop (Fix for Mac empty folder issue)
+          echo "Moving Protobuf from $VCPKG_LIB_DIR to $TARGET_LIB_DIR"
+          find "$VCPKG_LIB_DIR" -maxdepth 1 -name "*protobuf*" -exec mv {} "$TARGET_LIB_DIR/" \;
+
+          # 5. Copy remaining dependencies to deps (Fix for Mac find quirks)
+          echo "Copying remaining deps to $TARGET_DEPS_LIB_DIR"
+          find "$VCPKG_LIB_DIR" -maxdepth 1 \( -type f -o -type l \) \( -name "*.lib" -o -name "*.a" \) -exec cp -RP {} "$TARGET_DEPS_LIB_DIR/" \;
+
+          # 6. OSI Library Fallback Logic
+          OSI_SRC_DIR="${{ github.workspace }}/build-osi"
+          if [ "${{ matrix.linkage }}" = "static" ]; then
+            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface.lib" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/libopen_simulation_interface.a" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+          else
+            # Try all extensions for dynamic linking
+            cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -RP "$OSI_SRC_DIR/libopen_simulation_interface"*.dylib* "$TARGET_LIB_DIR/" 2>/dev/null || true
+          fi
+
+          # 7. Finalize
+          [ -f "${{ github.workspace }}/${{ matrix.os }}-${{ matrix.configuration }}-${{ matrix.linkage }}-metadata.txt" ] && cp "${{ github.workspace }}/${{ matrix.os }}-${{ matrix.configuration }}-${{ matrix.linkage }}-metadata.txt" "$STAGING_DIR/"
+          find "$STAGING_DIR" -name "*protobuf-lite*" -delete
+          find "$STAGING_DIR" -name "libprotoc*" -delete
+
+          tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar" -C "$STAGING_DIR" .
+
+      - name: Upload OSI artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
+          path: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar
+          compression-level: 0
+
+  # release:
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
+
+  #   strategy:
+  #     matrix:
+  #       os: [linux, macos, windows]
+
+  #   steps:
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: package-osi-3.8-${{ matrix.os }}*
+  #         path: staging
+
+  #     - name: Bundle platform package
+  #       shell: bash
+  #       run: |
+  #         PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
+
+  #         if [ ${{ matrix.os }} = "linux" ]; then
+  #           FINAL_DIR="$PACKAGE_NAME/linux"
+  #         elif [ ${{ matrix.os }} = "windows" ]; then
+  #           FINAL_DIR="$PACKAGE_NAME/v10"
+  #         else
+  #           FINAL_DIR="$PACKAGE_NAME/mac"
+  #         fi
+
+  #         mkdir -p "$FINAL_DIR"
+
+  #         for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
+  #           tar -xvf "$tarfile" -C "$FINAL_DIR"
+  #         done
+  #         tar -cJvf "${PACKAGE_NAME}.tar.xz" -C "${PACKAGE_NAME}" .
+
+  #     - name: Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         tag_name: "osi-3.8-${{ github.run_number }}"
+  #         name: osi-3.8-b${{ github.run_number }}
+  #         body: 'osi build containing debug, release, static and dynamic files per platform'
+  #         files: "*.tar.xz"
