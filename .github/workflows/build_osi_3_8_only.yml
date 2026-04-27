@@ -26,8 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
-        # os: [ubuntu-22.04, macos-14, windows-2022]
+        os: [ubuntu-22.04, macos-14, windows-2022]
         configuration: [Debug, Release]
         linkage: [static, dynamic]
         # exclude:
@@ -38,14 +37,14 @@ jobs:
             triplet: x64-linux
             cmake-generator: -G Ninja
             artifact-name: osi-3.8-linux
-          # - os: macos-14
-          #   triplet: universal-osx
-          #   cmake-generator: -G Ninja
-          #   artifact-name: osi-3.8-macos
-          # - os: windows-2022
-          #   triplet: x64-windows-static-md-v142
-          #   cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
-          #   artifact-name: osi-3.8-windows
+          - os: macos-14
+            triplet: universal-osx
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-macos
+          - os: windows-2022
+            triplet: x64-windows-static-md-v142
+            cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
+            artifact-name: osi-3.8-windows
 
     steps:
       - name: Checkout workflow repository
@@ -147,8 +146,6 @@ jobs:
 
       # This action does 3 steps:
       # 1. Bootstraps vcpkg to location and specific commit
-      # 2. Integrates the cache of $ACTION_CACHE_URL
-      # 3. Installs dependencies from vcpkg.json (from asam-osi-utils)
       # Note: Only runs if we didn't hit the cache
       - name: Setup vcpkg
         if: steps.cache-osi.outputs.cache-hit != 'true'
@@ -159,8 +156,6 @@ jobs:
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg # Create a new clean vcpkg dir inside workspace
           vcpkgGitCommitId: ${{ steps.versions.outputs.vcpkg-baseline }} # Use the vcpkg baseline saved earlier (which depends asam-osi-utils commit used)
-          vcpkgJsonGlob: 'osi-cpp/vcpkg.json'
-          runVcpkgInstall: true
 
       # We build, first setup vcpkg for suitable platform, fetch the triplets defined earlier and replace \ with / (VCPKG_TC="${VCPKG_TC//\\//}")
       # Then we do cmake, notes:
@@ -331,9 +326,9 @@ jobs:
           # 6. OSI Library Fallback Logic
           OSI_SRC_DIR="${{ github.workspace }}/build-osi"
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface.lib" 2>/dev/null || \
-            cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/libopen_simulation_interface.a" 2>/dev/null || \
-            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
           else
             # Try all extensions for dynamic linking
             cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
@@ -354,45 +349,45 @@ jobs:
           path: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar
           compression-level: 0
 
-  # release:
-  #   needs: [build]
-  #   runs-on: ubuntu-latest
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
 
-  #   strategy:
-  #     matrix:
-  #       os: [linux, macos, windows]
+    strategy:
+      matrix:
+        os: [linux, macos, windows]
 
-  #   steps:
-  #     - name: Download all artifacts
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         pattern: package-osi-3.8-${{ matrix.os }}*
-  #         path: staging
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: package-osi-3.8-${{ matrix.os }}*
+          path: staging
 
-  #     - name: Bundle platform package
-  #       shell: bash
-  #       run: |
-  #         PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
+      - name: Bundle platform package
+        shell: bash
+        run: |
+          PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
 
-  #         if [ ${{ matrix.os }} = "linux" ]; then
-  #           FINAL_DIR="$PACKAGE_NAME/linux"
-  #         elif [ ${{ matrix.os }} = "windows" ]; then
-  #           FINAL_DIR="$PACKAGE_NAME/v10"
-  #         else
-  #           FINAL_DIR="$PACKAGE_NAME/mac"
-  #         fi
+          if [ ${{ matrix.os }} = "linux" ]; then
+            FINAL_DIR="$PACKAGE_NAME/linux"
+          elif [ ${{ matrix.os }} = "windows" ]; then
+            FINAL_DIR="$PACKAGE_NAME/v10"
+          else
+            FINAL_DIR="$PACKAGE_NAME/mac"
+          fi
 
-  #         mkdir -p "$FINAL_DIR"
+          mkdir -p "$FINAL_DIR"
 
-  #         for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
-  #           tar -xvf "$tarfile" -C "$FINAL_DIR"
-  #         done
-  #         tar -cJvf "${PACKAGE_NAME}.tar.xz" -C "${PACKAGE_NAME}" .
+          for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
+            tar -xvf "$tarfile" -C "$FINAL_DIR"
+          done
+          tar -cJvf "${PACKAGE_NAME}.tar.xz" -C "${PACKAGE_NAME}" .
 
-  #     - name: Release
-  #       uses: softprops/action-gh-release@v2
-  #       with:
-  #         tag_name: "osi-3.8-${{ github.run_number }}"
-  #         name: osi-3.8-b${{ github.run_number }}
-  #         body: 'osi build containing debug, release, static and dynamic files per platform'
-  #         files: "*.tar.xz"
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "osi-3.8-${{ github.run_number }}"
+          name: osi-3.8-b${{ github.run_number }}
+          body: 'osi build containing debug, release, static and dynamic files per platform'
+          files: "*.tar.xz"
