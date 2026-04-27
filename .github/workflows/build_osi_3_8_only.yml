@@ -67,8 +67,8 @@ jobs:
         shell: bash
         run: |
           FILENAME="${{ matrix.triplet }}-${{ matrix.linkage }}.cmake"
-          mkdir -p ${{ github.workspace }}/vcpkg-triplets
-          DEST="${{ github.workspace }}/vcpkg-triplets/$FILENAME"
+          mkdir vcpkg-triplets
+          DEST="vcpkg-triplets/$FILENAME"
 
           if [ "${{ runner.os }}" = "macOS" ]; then
             echo "set(VCPKG_TARGET_ARCHITECTURE arm64)" > "$DEST"
