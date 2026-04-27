@@ -38,14 +38,14 @@ jobs:
             triplet: x64-linux
             cmake-generator: -G Ninja
             artifact-name: osi-3.8-linux
-          - os: macos-14
-            triplet: universal-osx
-            cmake-generator: -G Ninja
-            artifact-name: osi-3.8-macos
-          - os: windows-2022
-            triplet: x64-windows-static-md-v142
-            cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
-            artifact-name: osi-3.8-windows
+          # - os: macos-14
+          #   triplet: universal-osx
+          #   cmake-generator: -G Ninja
+          #   artifact-name: osi-3.8-macos
+          # - os: windows-2022
+          #   triplet: x64-windows-static-md-v142
+          #   cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
+          #   artifact-name: osi-3.8-windows
 
     steps:
       - name: Checkout workflow repository
@@ -113,12 +113,6 @@ jobs:
         shell: bash
         run: |
           SOURCE_SHA=$(git -C osi-cpp rev-parse HEAD)
-          SOURCE_VERSION=$(python3 - <<'PY'
-          import json
-          with open('osi-cpp/vcpkg.json', encoding='utf-8') as handle:
-              print(json.load(handle)['version-string'])
-          PY
-          )
           VCPKG_BASELINE=$(python3 - <<'PY'
           import json
           with open('osi-cpp/vcpkg-configuration.json', encoding='utf-8') as handle:
@@ -127,7 +121,6 @@ jobs:
           )
 
           echo "source-sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
-          echo "source-version=${SOURCE_VERSION}" >> "$GITHUB_OUTPUT"
           echo "vcpkg-baseline=${VCPKG_BASELINE}" >> "$GITHUB_OUTPUT"
 
       # Restore the cache if new cfg made (manually updated v1->v2 etc.) or asam-osi-utilities hash changed or vcpkg baseline changed (dependencies updated)
@@ -260,7 +253,6 @@ jobs:
           osi repository: ${{ env.OSI_REPOSITORY }}
           osi ref: ${{ env.OSI_REF }}
           osi commit: ${{ steps.versions.outputs.source-sha }}
-          osi version: ${{ steps.versions.outputs.source-version }}
           vcpkg baseline: ${{ steps.versions.outputs.vcpkg-baseline }}
           runner: ${{ runner.os }}
           configuration: ${{ matrix.configuration }}
