@@ -330,8 +330,8 @@ jobs:
           fi
 
           if [ "${{ matrix.linkage }}" = "static" ]; then
-            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || \
             cp -P "$OSI_SRC_DIR/libopen_simulation_interface_pic.a" "$TARGET_LIB_DIR/" 2>/dev/null || \
+            cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || true
           else
             # Try all extensions for dynamic linking
             cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
