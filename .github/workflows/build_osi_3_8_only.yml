@@ -279,7 +279,6 @@ jobs:
       #   uses: mxschmitt/action-tmate@v3
 
       - name: Archive Artifacts
-        if: "!(matrix.os == 'windows-2022' && matrix.linkage == 'dynamic')"
         shell: bash
         run: |
           # 1. Setup Path Variables
