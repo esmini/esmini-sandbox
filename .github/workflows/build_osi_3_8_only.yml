@@ -26,22 +26,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022]
-        # os: [ubuntu-22.04, macos-14, windows-2022]
+        os: [ubuntu-22.04, macos-14, windows-2022]
         configuration: [Debug, Release]
         linkage: [static, dynamic]
         # exclude:
         #   - os: windows-2022
         #     linkage: dynamic
         include:
-          # - os: ubuntu-22.04
-          #   triplet: x64-linux
-          #   cmake-generator: -G Ninja
-          #   artifact-name: osi-3.8-linux
-          # - os: macos-14
-          #   triplet: universal-osx
-          #   cmake-generator: -G Ninja
-          #   artifact-name: osi-3.8-macos
+          - os: ubuntu-22.04
+            triplet: x64-linux
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-linux
+          - os: macos-14
+            triplet: universal-osx
+            cmake-generator: -G Ninja
+            artifact-name: osi-3.8-macos
           - os: windows-2022
             triplet: x64-windows-static-md-v142
             cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
@@ -328,6 +327,7 @@ jobs:
           OSI_SRC_DIR="${{ github.workspace }}/build-osi"
           if [ "${{ runner.os }}" = "Windows" ]; then
             OSI_SRC_DIR="$OSI_SRC_DIR/${{ matrix.configuration }}"
+          fi
 
           if [ "${{ matrix.linkage }}" = "static" ]; then
             cp -P "$OSI_SRC_DIR/open_simulation_interface_static.lib" "$TARGET_LIB_DIR/open_simulation_interface_pic.lib" 2>/dev/null || \
