@@ -26,22 +26,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
-        # os: [windows-2022]
+        # os: [ubuntu-22.04, macos-14, windows-2022]
+        os: [windows-2022]
         configuration: [Debug, Release]
         linkage: [static, dynamic]
         # exclude:
         #   - os: windows-2022
         #     linkage: dynamic
         include:
-          - os: ubuntu-22.04
-            triplet: x64-linux
-            cmake-generator: -G Ninja
-            artifact-name: osi-3.8-linux
-          - os: macos-14
-            triplet: universal-osx
-            cmake-generator: -G Ninja
-            artifact-name: osi-3.8-macos
+          # - os: ubuntu-22.04
+          #   triplet: x64-linux
+          #   cmake-generator: -G Ninja
+          #   artifact-name: osi-3.8-linux
+          # - os: macos-14
+          #   triplet: universal-osx
+          #   cmake-generator: -G Ninja
+          #   artifact-name: osi-3.8-macos
           - os: windows-2022
             triplet: x64-windows-static-md-v142
             cmake-generator: -G "Visual Studio 17 2022" -T v142 -A x64
@@ -269,9 +269,9 @@ jobs:
           - cache hit: ${{ steps.cache-osi.outputs.cache-hit || 'false' }}
           EOF
 
-      # - name: Debugging with tmate
-      #   if: matrix.os == 'windows-2022'
-      #   uses: mxschmitt/action-tmate@v3
+      - name: Debugging with tmate
+        if: matrix.os == 'windows-2022'
+        uses: mxschmitt/action-tmate@v3
 
       - name: Archive Artifacts
         shell: bash
@@ -343,52 +343,52 @@ jobs:
 
           tar -cvzf "${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar" -C "$STAGING_DIR" .
 
-      - name: Upload OSI artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: package-${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
-          path: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar
-          compression-level: 0
+  #     - name: Upload OSI artifacts
+  #       uses: actions/upload-artifact@v7
+  #       with:
+  #         name: package-${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}
+  #         path: ${{ matrix.artifact-name }}-${{ matrix.configuration }}-${{ matrix.linkage }}.tar
+  #         compression-level: 0
 
-  release:
-    needs: [build]
-    runs-on: ubuntu-latest
+  # release:
+  #   needs: [build]
+  #   runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [linux, macos, windows]
+  #   strategy:
+  #     matrix:
+  #       os: [linux, macos, windows]
 
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: package-osi-3.8-${{ matrix.os }}*
-          path: staging
+  #   steps:
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: package-osi-3.8-${{ matrix.os }}*
+  #         path: staging
 
-      - name: Bundle platform package
-        shell: bash
-        run: |
-          PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
+  #     - name: Bundle platform package
+  #       shell: bash
+  #       run: |
+  #         PACKAGE_NAME="osi-3.8-${{ matrix.os }}-${{ github.run_number }}"
 
-          if [ ${{ matrix.os }} = "linux" ]; then
-            FINAL_DIR="$PACKAGE_NAME/linux"
-          elif [ ${{ matrix.os }} = "windows" ]; then
-            FINAL_DIR="$PACKAGE_NAME/v10"
-          else
-            FINAL_DIR="$PACKAGE_NAME/mac"
-          fi
+  #         if [ ${{ matrix.os }} = "linux" ]; then
+  #           FINAL_DIR="$PACKAGE_NAME/linux"
+  #         elif [ ${{ matrix.os }} = "windows" ]; then
+  #           FINAL_DIR="$PACKAGE_NAME/v10"
+  #         else
+  #           FINAL_DIR="$PACKAGE_NAME/mac"
+  #         fi
 
-          mkdir -p "$FINAL_DIR"
+  #         mkdir -p "$FINAL_DIR"
 
-          for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
-            tar -xvf "$tarfile" -C "$FINAL_DIR"
-          done
-          tar -cJvf "${PACKAGE_NAME}.tar.xz" -C "${PACKAGE_NAME}" .
+  #         for tarfile in staging/package-osi-3.8-${{ matrix.os }}*/*.tar; do
+  #           tar -xvf "$tarfile" -C "$FINAL_DIR"
+  #         done
+  #         tar -cJvf "${PACKAGE_NAME}.tar.xz" -C "${PACKAGE_NAME}" .
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "osi-3.8-${{ github.run_number }}"
-          name: osi-3.8-b${{ github.run_number }}
-          body: 'osi build containing debug, release, static and dynamic files per platform'
-          files: "*.tar.xz"
+  #     - name: Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         tag_name: "osi-3.8-${{ github.run_number }}"
+  #         name: osi-3.8-b${{ github.run_number }}
+  #         body: 'osi build containing debug, release, static and dynamic files per platform'
+  #         files: "*.tar.xz"
