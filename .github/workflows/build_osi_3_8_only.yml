@@ -88,13 +88,8 @@ jobs:
             echo 'set(VCPKG_CXX_FLAGS "/nologo /DWIN32 /D_WINDOWS /W3 /GR /EHsc /GL-")' >> "$DEST"
             echo 'set(VCPKG_C_FLAGS "/nologo /DWIN32 /D_WINDOWS /W3 /GL-")' >> "$DEST"
 
-            # Force Release to be absolutely "naked"
-            # Note the use of /DEBUG:NONE if the port tries to trigger linking logic
-            echo 'set(VCPKG_CXX_FLAGS_RELEASE "/O2 /DNDEBUG /Z7- /Zi-")' >> "$DEST"
-            echo 'set(VCPKG_C_FLAGS_RELEASE "/O2 /DNDEBUG /Z7- /Zi-")' >> "$DEST"
-
             # This is the "Secret Sauce": force CMake to use these empty/minimal strings for the standard configurations
-            echo 'set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DCMAKE_CXX_FLAGS_DEBUG=/Od /Z7" "-DCMAKE_CXX_FLAGS_RELEASE=/O2 /DNDEBUG" "-DCMAKE_C_FLAGS_DEBUG=/Od /Z7" "-DCMAKE_C_FLAGS_RELEASE=/O2 /DNDEBUG")' >> "$DEST"
+            echo 'set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DCMAKE_CXX_FLAGS_DEBUG=/Od /MDd /Z7" "-DCMAKE_CXX_FLAGS_RELEASE=/O2 /MD /DNDEBUG" "-DCMAKE_C_FLAGS_DEBUG=/Od /MDd /Z7" "-DCMAKE_C_FLAGS_RELEASE=/O2 /MD /DNDEBUG")' >> "$DEST"
 
           else # Linux
             echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
