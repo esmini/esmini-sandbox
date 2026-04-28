@@ -89,11 +89,7 @@ jobs:
             echo 'set(VCPKG_C_FLAGS "/nologo /GL-")' >> "$DEST"
 
             # This is the "Secret Sauce": force CMake to use these empty/minimal strings for the standard configurations
-            echo 'set(VCPKG_CMAKE_CONFIGURE_OPTIONS \
-              "-DCMAKE_CXX_FLAGS_DEBUG=/Od /MDd /Z7 /Gy" \
-              "-DCMAKE_CXX_FLAGS_RELEASE=/O2 /MD /DNDEBUG /Gy /Gw" \
-              "-DCMAKE_C_FLAGS_DEBUG=/Od /MDd /Z7 /Gy" \
-              "-DCMAKE_C_FLAGS_RELEASE=/O2 /MD /DNDEBUG /Gy /Gw")' >> "$DEST"
+            echo 'set(VCPKG_CMAKE_CONFIGURE_OPTIONS "-DCMAKE_CXX_FLAGS_DEBUG=/Od /MDd /Z7 /Gy" "-DCMAKE_CXX_FLAGS_RELEASE=/O2 /MD /DNDEBUG /Gy /Gw" "-DCMAKE_C_FLAGS_DEBUG=/Od /MDd /Z7 /Gy" "-DCMAKE_C_FLAGS_RELEASE=/O2 /MD /DNDEBUG /Gy /Gw")' >> "$DEST"
 
           else # Linux
             echo "set(VCPKG_TARGET_ARCHITECTURE x64)" > "$DEST"
