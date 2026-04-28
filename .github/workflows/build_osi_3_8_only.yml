@@ -336,7 +336,7 @@ jobs:
             cp -RP "$OSI_SRC_DIR/libopen_simulation_interface.so"* "$TARGET_LIB_DIR/" 2>/dev/null || true
             cp -RP "$OSI_SRC_DIR/libopen_simulation_interface"*.dylib* "$TARGET_LIB_DIR/" 2>/dev/null || true
             cp -P "$OSI_SRC_DIR/open_simulation_interface.dll" "$TARGET_LIB_DIR/" 2>/dev/null || true
-            cp -P "$OSI_SRC_DIR/open_simulation_interface.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
+            cp -P "$OSI_SRC_DIR/open_simulation_interface_pic.lib" "$TARGET_LIB_DIR/" 2>/dev/null || true
           fi
 
           # 7. Finalize
